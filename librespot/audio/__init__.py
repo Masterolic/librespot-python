@@ -22,10 +22,11 @@ import urllib.parse
 
 if typing.TYPE_CHECKING:
     from librespot.core import Session
+
 class ResourceNotAvailableError(Exception):
     """Raised when the requested stream is unavailable from the API."""
     pass
-
+    
 class AbsChunkedInputStream(io.BytesIO, HaltListener):
     chunk_exception = None
     closed = False
@@ -256,10 +257,25 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                 "Couldn't handle packet, cmd: {}, length: {}".format(
                     packet.cmd, len(packet.payload)))
 
-    def get_audio_key(self,
-                      gid: bytes,
-                      file_id: bytes,
-                      retry: bool = True) -> bytes:
+    def seek_key(self, gid, file_id, retry = True):
+        response = self.__session.client() \
+                .get("https://seektables.scdn.co/seektable/{}.json".format(util.bytes_to_hex(file_id)))
+        if response.status_code != 200:
+           raise IOError("{}".format(response.status_code))
+        json = response.json()
+        if not json:
+           raise IOError("Seektable seems empty")
+        wideresponse = self.__session.client() \
+                .post("https://integration.widevine.com/_/pssh_decode", json.get("pssh_widevine"))
+        widejson = wideresponse.text()
+        if not widejson:
+           raise IOError("Widevine decoders seems empty")
+        json_start = widejson.find('{"algorithm":')
+        # Parse the JSON object
+        json_data = json.loads(widejson[json_start:])
+        return base64.b64decode(base64.urlsafe_b64encode(json_data.get("key_ids").pop(0).bytes))
+
+    def get_key(self, gid, file_id, retry = True):
         seq: int
         with self.__seq_holder_lock:
             seq = self.__seq_holder
@@ -276,11 +292,19 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         key = callback.wait_response()
         if key is None:
             if retry:
-                return self.get_audio_key(gid, file_id, False)
+                return self.get_key(gid, file_id, False)
             raise RuntimeError(
                 "Failed fetching audio key! gid: {}, fileId: {}".format(
                     util.bytes_to_hex(gid), util.bytes_to_hex(file_id)))
         return key
+        
+    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
+        try:
+            key = self.get_key(gid, file_id, retry = True)
+            return key 
+        except Exception:
+            key = self.seek_key(gid, file_id, retry = True)
+            return key
 
     class Callback:
 
@@ -304,8 +328,9 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                 self.__reference_lock.notify_all()
 
         def error(self, code: int) -> None:
-            self.__audio_key_manager.logger.fatal(
-                "Audio key error, code: {}".format(code))
+            if not code == 2:
+               self.__audio_key_manager.logger.fatal(
+                  "Audio key error, code: {}".format(code))
             with self.__reference_lock:
                 self.__reference.put(None)
                 self.__reference_lock.notify_all()
@@ -358,12 +383,17 @@ class CdnFeedHelper:
     def load_episode_external(
             session: Session, episode: Metadata.Episode,
             halt_listener: HaltListener) -> PlayableContentFeeder.LoadedStream:
-        resp = session.client().head(episode.external_url)
-
-        if resp.status_code != 200:
-            CdnFeedHelper._LOGGER.warning("Couldn't resolve redirect!")
-
-        url = resp.url
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+        }
+        resp = session.client().get(episode.external_url,headers=headers)
+        
+        if resp.status_code not in [200, 302]:
+            CdnFeedHelper._LOGGER.warning(f"Couldn't resolve redirect! {resp.status_code}")
+        if resp.status_code != 302:
+           url = resp.headers["location"] if resp.headers.get("location",None) else resp.url
+        else:
+             url = resp.url
         CdnFeedHelper._LOGGER.debug("Fetched external url for {}: {}".format(
             util.bytes_to_hex(episode.gid), url))
 
@@ -631,11 +661,13 @@ class CdnManager:
             if chunk is not None:
                 range_start = ChannelManager.chunk_size * chunk
                 range_end = (chunk + 1) * ChannelManager.chunk_size - 1
+            headers = {
+            "Range": "bytes={}-{}".format(range_start, range_end),
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+            }
             response = self.__session.client().get(
                 self.__cdn_url.url,
-                headers={
-                    "Range": "bytes={}-{}".format(range_start, range_end)
-                },
+                headers=headers,
             )
             if response.status_code != 206:
                 raise IOError(response.status_code)
@@ -772,8 +804,11 @@ class PlayableContentFeeder:
                      halt_listener: HaltListener) -> LoadedStream:
         episode = self.__session.api().get_metadata_4_episode(episode_id)
         if episode.external_url:
-            return CdnFeedHelper.load_episode_external(self.__session, episode,
+            try:
+                return CdnFeedHelper.load_episode_external(self.__session, episode,
                                                        halt_listener)
+            except Exception as e:
+                self.logger.fatal(" Unable To Load External Episode due to: %s", e)
         file = audio_quality_picker.get_file(episode.audio)
         if file is None:
             self.logger.fatal(
@@ -798,7 +833,9 @@ class PlayableContentFeeder:
             self.logger.fatal(
                 "Couldn't find any suitable audio file, available: {}".format(
                     track.file))
-            raise FeederException()
+            raise FeederException(
+                "Couldn't find any suitable audio file, available: {}".format(
+                    track.file))
         return self.load_stream(file, track, None, preload, halt_listener)
 
     def pick_alternative_if_necessary(
