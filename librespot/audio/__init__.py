@@ -22,7 +22,9 @@ import urllib.parse
 
 if typing.TYPE_CHECKING:
     from librespot.core import Session
-
+class ResourceNotAvailableError(Exception):
+    """Raised when the requested stream is unavailable from the API."""
+    pass
 
 class AbsChunkedInputStream(io.BytesIO, HaltListener):
     chunk_exception = None
@@ -788,7 +790,7 @@ class PlayableContentFeeder:
                 track_id_or_track)
             track = self.pick_alternative_if_necessary(original)
             if track is None:
-                raise RuntimeError("Cannot get alternative track")
+                raise ResourceNotAvailableError("Cannot get alternative track")
         else:
             track = track_id_or_track
         file = audio_quality_picker.get_file(track.file)
