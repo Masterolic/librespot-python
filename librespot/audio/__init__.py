@@ -257,24 +257,6 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                 "Couldn't handle packet, cmd: {}, length: {}".format(
                     packet.cmd, len(packet.payload)))
 
-    def seek_key(self, gid, file_id, retry = True):
-        response = self.__session.client() \
-                .get("https://seektables.scdn.co/seektable/{}.json".format(util.bytes_to_hex(file_id)))
-        if response.status_code != 200:
-           raise IOError("{}".format(response.status_code))
-        json = response.json()
-        if not json:
-           raise IOError("Seektable seems empty")
-        wideresponse = self.__session.client() \
-                .post("https://integration.widevine.com/_/pssh_decode", json.get("pssh_widevine"))
-        widejson = wideresponse.text()
-        if not widejson:
-           raise IOError("Widevine decoders seems empty")
-        json_start = widejson.find('{"algorithm":')
-        # Parse the JSON object
-        json_data = json.loads(widejson[json_start:])
-        return base64.b64decode(base64.urlsafe_b64encode(json_data.get("key_ids").pop(0).bytes))
-
     def get_key(self, gid, file_id, retry = True):
         seq: int
         with self.__seq_holder_lock:
@@ -303,9 +285,9 @@ class AudioKeyManager(PacketsReceiver, Closeable):
             key = self.get_key(gid, file_id, retry = True)
             return key 
         except Exception:
-            key = self.seek_key(gid, file_id, retry = True)
+            time.sleep(2)
+            key = self.get_key(gid, file_id, retry = True)
             return key
-
     class Callback:
 
         def key(self, key: bytes) -> None:
