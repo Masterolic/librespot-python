@@ -1577,6 +1577,8 @@ class Session(Closeable, MessageListener, SubListener):
             """
             if stored_credentials is None:
                 stored_credentials = self.conf.stored_credentials_file
+            stored_credentials = os.path.join(os.getcwd(), stored_credentials)
+            self.conf.stored_credentials_file = stored_credentials
             if os.path.isfile(stored_credentials):
                 try:
                     with open(stored_credentials) as f:
