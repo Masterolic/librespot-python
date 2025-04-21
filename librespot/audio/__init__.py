@@ -8,6 +8,7 @@ from librespot.crypto import Packet
 from librespot.metadata import EpisodeId, PlayableId, TrackId
 from librespot.proto import Metadata_pb2 as Metadata, StorageResolve_pb2 as StorageResolve
 from librespot.structure import AudioDecrypt, AudioQualityPicker, Closeable, FeederException, GeneralAudioStream, GeneralWritableStream, HaltListener, NoopAudioDecrypt, PacketsReceiver
+from threading import RLock, Lock
 import concurrent.futures
 import io
 import logging
@@ -19,6 +20,9 @@ import threading
 import time
 import typing
 import urllib.parse
+read_lock = RLock()
+read_pending = Lock()
+reading_pending = 0
 
 if typing.TYPE_CHECKING:
     from librespot.core import Session
@@ -254,7 +258,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                 "Couldn't handle packet, cmd: {}, length: {}".format(
                     packet.cmd, len(packet.payload)))
 
-    def get_audio_key(self,
+    def get_key(self,
                       gid: bytes,
                       file_id: bytes,
                       retry: bool = True) -> bytes:
@@ -271,15 +275,36 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         self.__session.send(Packet.Type.request_key, out.read())
         callback = AudioKeyManager.SyncCallback(self)
         self.__callbacks[seq] = callback
-        key = callback.wait_response()
-        if key is None:
-            if retry:
-                return self.get_audio_key(gid, file_id, False)
-            raise RuntimeError(
+        try:                  
+            key = callback.wait_response()
+            if key is None:
+               if retry:
+                  return self.get_audio_key(gid, file_id, False)
+               raise KeyUnavailableError(
                 "Failed fetching audio key! gid: {}, fileId: {}".format(
                     util.bytes_to_hex(gid), util.bytes_to_hex(file_id)))
-        return key
-
+            return key
+        finally:
+             with self.__seq_holder_lock:
+                  self.__callbacks.pop(seq, None)  # Clean up the callback
+                 
+    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
+        global reading_pending
+        with read_pending:
+             reading_pending += 1
+        try:
+            with read_lock:
+                 key = self.get_key(gid, file_id, retry=retry)
+                 return key
+        except Exception as e:
+               if retry:
+                  time.sleep(0.5)
+                  return self.get_audio_key(gid, file_id, False)
+               raise KeyUnavailableError(f"Failed to fetch audio key: {e}")
+        finally:
+            with read_pending:
+                 reading_pending -= 1
+                
     class Callback:
 
         def key(self, key: bytes) -> None:
