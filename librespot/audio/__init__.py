@@ -26,7 +26,14 @@ reading_pending = 0
 
 if typing.TYPE_CHECKING:
     from librespot.core import Session
-
+    
+class ResourceNotAvailableError(Exception):
+    """Raised when the requested stream is unavailable from the API."""
+    pass
+    
+class KeyUnavailableError(Exception):
+    """Raised when the requested stream is unavailable from the API."""
+    pass
 
 class AbsChunkedInputStream(io.BytesIO, HaltListener):
     chunk_exception = None
