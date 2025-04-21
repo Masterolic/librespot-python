@@ -1999,7 +1999,7 @@ class Session(Closeable, MessageListener, SubListener):
                 except (RuntimeError, ConnectionResetError) as ex:
                     if self.__running:
                         self.__session.logger.fatal(
-                            "Failed reading packet! {}".format(ex))
+                            "Failed reading packet! {}".format(ex), exc_info=True)
                         self.__session.reconnect()
                     break
                 if not self.__running:
