@@ -279,6 +279,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
             key = callback.wait_response()
             if key is None:
                if retry:
+                  time.sleep(0.5)
                   return self.get_audio_key(gid, file_id, False)
                raise KeyUnavailableError(
                 "Failed fetching audio key! gid: {}, fileId: {}".format(
@@ -292,18 +293,15 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         global reading_pending
         with read_pending:
              reading_pending += 1
-        try:
-            with read_lock:
+        with read_lock:
+             try:
                  key = self.get_key(gid, file_id, retry=retry)
                  return key
-        except Exception as e:
-               if retry:
-                  time.sleep(0.5)
-                  return self.get_audio_key(gid, file_id, False)
-               raise KeyUnavailableError(f"Failed to fetch audio key: {e}")
-        finally:
-            with read_pending:
-                 reading_pending -= 1
+             except Exception as e:
+                    raise KeyUnavailableError(f"Failed to fetch audio key: {e}")
+             finally:
+                with read_pending:
+                    reading_pending -= 1
                 
     class Callback:
 
