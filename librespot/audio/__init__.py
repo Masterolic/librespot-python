@@ -818,7 +818,7 @@ class PlayableContentFeeder:
                 track_id_or_track)
             track = self.pick_alternative_if_necessary(original)
             if track is None:
-                raise RuntimeError("Cannot get alternative track")
+                raise ResourceNotAvailableError("Cannot get alternative track")
         else:
             track = track_id_or_track
         file = audio_quality_picker.get_file(track.file)
