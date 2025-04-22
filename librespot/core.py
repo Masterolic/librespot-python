@@ -1216,9 +1216,27 @@ class Session(Closeable, MessageListener, SubListener):
     def reconnect(self) -> None:
         """Reconnect to the Spotify Server"""
         if self.connection is not None:
-            self.connection.close()
+            try:
+                self.connection.close()
+            except Exception as e:
+                self.logger.warning("failed to close connection while reconnecting due: %s",e)
             self.__receiver.stop()
-        self.connection = Session.ConnectionHolder.create(
+        if self.__receiver is not None
+           self.__receiver.stop()
+        try:
+            self.connection = Session.ConnectionHolder.create(
+            ApResolver.get_random_accesspoint(), self.__inner.conf)
+        except Exception as e:
+            self.logger.warning("Failed to reconnect trying again due to %s", e)
+            time.sleep(2)
+            if self.connection is not None:
+               try:
+                   self.connection.close()
+               except Exception as e:
+                   self.logger.warning("failed to close connection while reconnecting due: %s",e)
+            if self.__receiver is not None
+               self.__receiver.stop()
+            self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
         self.connect()
         self.__authenticate_partial(
