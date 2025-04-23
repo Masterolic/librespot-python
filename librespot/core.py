@@ -1221,7 +1221,7 @@ class Session(Closeable, MessageListener, SubListener):
             except Exception as e:
                 self.logger.warning("failed to close connection while reconnecting due: %s",e)
             self.__receiver.stop()
-        if self.__receiver is not None
+        if self.__receiver is not None:
            self.__receiver.stop()
         try:
             self.connection = Session.ConnectionHolder.create(
