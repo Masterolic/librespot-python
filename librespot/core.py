@@ -1234,7 +1234,7 @@ class Session(Closeable, MessageListener, SubListener):
                    self.connection.close()
                except Exception as e:
                    self.logger.warning("failed to close connection while reconnecting due: %s",e)
-            if self.__receiver is not None
+            if self.__receiver is not None:
                self.__receiver.stop()
             self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
