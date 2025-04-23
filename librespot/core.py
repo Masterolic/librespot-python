@@ -1985,9 +1985,9 @@ class Session(Closeable, MessageListener, SubListener):
         """ """
         __session: Session
         __thread: threading.Thread
-        __running: bool = True
 
         def __init__(self, session):
+            __running: bool = True
             self.__session = session
             self.__thread = threading.Thread(target=self.run)
             self.__thread.daemon = True
