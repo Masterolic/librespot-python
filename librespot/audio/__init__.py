@@ -286,7 +286,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
             key = callback.wait_response()
             if key is None:
                if retry:
-                  time.sleep(0.5)
+                  time.sleep(1)
                   return self.get_audio_key(gid, file_id, False)
                raise KeyUnavailableError(
                 "Failed fetching audio key! gid: {}, fileId: {}".format(
@@ -319,12 +319,10 @@ class AudioKeyManager(PacketsReceiver, Closeable):
             raise NotImplementedError
 
     class SyncCallback(Callback):
-        __audio_key_manager: AudioKeyManager
-        __reference = queue.Queue()
-        __reference_lock = threading.Condition()
-
         def __init__(self, audio_key_manager: AudioKeyManager):
-            self.__audio_key_manager = audio_key_manager
+              self.__audio_key_manager = audio_key_manager
+              self.__reference = queue.Queue()
+              self.__reference_lock = threading.Condition()
 
         def key(self, key: bytes) -> None:
             with self.__reference_lock:
