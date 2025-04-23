@@ -1985,10 +1985,10 @@ class Session(Closeable, MessageListener, SubListener):
         """ """
         __session: Session
         __thread: threading.Thread
+        __running: bool = True
 
         def __init__(self, session):
             self.__session = session
-            self.__stop_event = threading.Event()
             self.__thread = threading.Thread(target=self.run)
             self.__thread.daemon = True
             self.__thread.name = "session-packet-receiver"
@@ -1996,16 +1996,15 @@ class Session(Closeable, MessageListener, SubListener):
 
         def stop(self) -> None:
             """ """
-            self.__stop_event.set()
+            self.__running = False
 
         def run(self) -> None:
             """Receive Packet thread function"""
             self.__session.logger.info("Session.Receiver started")
-            while not self.__stop_event.is_set():
+            while self.__running:
                 packet: Packet
                 cmd: bytes
                 try:
-             #       self.__session.connection.set_timeout(40)
                     packet = self.__session.cipher_pair.receive_encoded(
                         self.__session.connection)
                     cmd = Packet.Type.parse(packet.cmd)
@@ -2015,15 +2014,13 @@ class Session(Closeable, MessageListener, SubListener):
                             format(util.bytes_to_hex(packet.cmd),
                                    packet.payload))
                         continue
-                except socket.timeout:
-                    continue 
                 except (RuntimeError, ConnectionResetError) as ex:
-                    if not self.__stop_event.is_set():
+                    if self.__running:
                         self.__session.logger.fatal(
-                            "Failed reading packet! {}".format(ex), exc_info=False)
+                            "Failed reading packet! {}".format(ex), exc_info=True)
                         self.__session.reconnect()
                     break
-                if not self.__stop_event.is_set():
+                if not self.__running:
                     break
                 if cmd == Packet.Type.ping:
                     if self.__session.scheduled_reconnect is not None:
