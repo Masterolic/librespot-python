@@ -1987,7 +1987,8 @@ class Session(Closeable, MessageListener, SubListener):
         __thread: threading.Thread
 
         def __init__(self, session):
-            __running: bool = True
+            self.__running = threading.Event()
+            self.__running.set()
             self.__session = session
             self.__thread = threading.Thread(target=self.run)
             self.__thread.daemon = True
@@ -1996,12 +1997,12 @@ class Session(Closeable, MessageListener, SubListener):
 
         def stop(self) -> None:
             """ """
-            self.__running = False
+            self.__running.clear()
 
         def run(self) -> None:
             """Receive Packet thread function"""
             self.__session.logger.info("Session.Receiver started")
-            while self.__running:
+            while self.__running.is_set():
                 packet: Packet
                 cmd: bytes
                 try:
@@ -2015,12 +2016,12 @@ class Session(Closeable, MessageListener, SubListener):
                                    packet.payload))
                         continue
                 except (RuntimeError, ConnectionResetError) as ex:
-                    if self.__running:
+                    if self.__running.is_set():
                         self.__session.logger.fatal(
                             "Failed reading packet! {}".format(ex), exc_info=True)
                         self.__session.reconnect()
                     break
-                if not self.__running:
+                if not self.__running.is_set():
                     break
                 if cmd == Packet.Type.ping:
                     if self.__session.scheduled_reconnect is not None:
