@@ -2018,7 +2018,7 @@ class Session(Closeable, MessageListener, SubListener):
                 except socket.timeout:
                     continue 
                 except (RuntimeError, ConnectionResetError) as ex:
-                    if self.__stop_event.is_set():
+                    if not self.__stop_event.is_set():
                         self.__session.logger.fatal(
                             "Failed reading packet! {}".format(ex), exc_info=False)
                         self.__session.reconnect()
