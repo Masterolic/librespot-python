@@ -298,17 +298,17 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                  
     def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
         global reading_pending
-        with read_pending:
-             reading_pending += 1
-        with read_lock:
-             try:
+        try:
+            with read_pending:
+                 reading_pending += 1
+            with read_lock:
                  key = self.get_key(gid, file_id, retry=retry)
                  return key
-             except Exception as e:
-                    raise KeyUnavailableError(f"Failed to fetch audio key: {e}")
-             finally:
-                with read_pending:
-                    reading_pending -= 1
+        except Exception as e:
+             raise KeyUnavailableError(f"Failed to fetch audio key: {e}")
+        finally:
+             with read_pending:
+                  reading_pending -= 1
                 
     class Callback:
 
