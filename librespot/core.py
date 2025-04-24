@@ -1638,7 +1638,8 @@ class Session(Closeable, MessageListener, SubListener):
             """
             if self.login_credentials is None:
                 raise RuntimeError("You must select an authentication method.")
-            session = Session(
+            try:
+                session = Session(
                 Session.Inner(
                     self.device_type,
                     self.device_name,
@@ -1648,6 +1649,17 @@ class Session(Closeable, MessageListener, SubListener):
                 ),
                 ApResolver.get_random_accesspoint(),
             )
+            except Exception as e:
+                 session = Session(
+                 Session.Inner(
+                    self.device_type,
+                    self.device_name,
+                    self.preferred_locale,
+                    self.conf,
+                    self.device_id,
+                   ),
+                 ApResolver.get_random_accesspoint(),
+                 )
             session.connect()
             session.authenticate(self.login_credentials)
             return session
