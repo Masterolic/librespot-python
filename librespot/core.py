@@ -368,7 +368,10 @@ class ApResolver:
         :returns: dealer endpoint url
 
         """
-        return ApResolver.get_random_of("dealer")
+        app_names = ["gae2-dealer.spotify.com:443","guc3-dealer.spotify.com:443","gue1-dealer.spotify.com:443","gew1-dealer.spotify.com:443"]
+        random.shuffle(app_names)
+        return random.choice(app_names)
+        #return ApResolver.get_random_of("dealer")
 
     @staticmethod
     def get_random_spclient() -> str:
@@ -378,7 +381,10 @@ class ApResolver:
         :returns: spclient endpoint url
 
         """
-        return ApResolver.get_random_of("spclient")
+        app_names = ["gae2-spclient.spotify.com:443","guc3-spclient.spotify.com:443","gue1-spclient.spotify.com:443","gew4-spclient.spotify.com:443"]
+        random.shuffle(app_names)
+        return random.choice(app_names)
+        #return ApResolver.get_random_of("spclient")
 
     @staticmethod
     def get_random_accesspoint() -> str:
@@ -388,7 +394,10 @@ class ApResolver:
         :returns: accesspoint endpoint url
 
         """
-        return ApResolver.get_random_of("accesspoint")
+        app_names = ["ap-gae2.spotify.com:4070","ap-gae2.spotify.com:443","ap-gae2.spotify.com:80","ap-guc3.spotify.com:4070","ap-gew1.spotify.com:443","ap-gew4.spotify.com:80"]
+        random.shuffle(app_names)
+        return random.choice(app_names)
+    #    return ApResolver.get_random_of("accesspoint")
 
 
 class DealerClient(Closeable):
