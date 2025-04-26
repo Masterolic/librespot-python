@@ -1222,6 +1222,21 @@ class Session(Closeable, MessageListener, SubListener):
         """ """
         return self.__inner.preferred_locale
 
+    def reconnect_with_retry(self, max_retries=3, delay=2):
+        for attempt in range(1, max_retries + 1):
+            ex=None
+            try:
+               self.__session.reconnect()
+               self.__session.logger.info("Reconnected successfully.")
+               return
+            except ConnectionRefusedError as e:
+                ex = e
+                self.__session.logger.warning(
+                  f"Reconnect attempt {attempt} failed: {e}"
+                  )
+                time.sleep(delay)
+        self.__session.logger.error("All reconnect attempts failed.")
+        raise ex
     def reconnect(self) -> None:
         """Reconnect to the Spotify Server"""
         if self.connection is not None:
@@ -1233,20 +1248,10 @@ class Session(Closeable, MessageListener, SubListener):
         if self.__receiver is not None:
            self.__receiver.stop()
         try:
-            self.connection = Session.ConnectionHolder.create(
-            ApResolver.get_random_accesspoint(), self.__inner.conf)
+           reconnect_with_retry(self) 
         except Exception as e:
-            self.logger.warning("Failed to reconnect trying again due to %s", e)
-            time.sleep(2)
-            if self.connection is not None:
-               try:
-                   self.connection.close()
-               except Exception as e:
-                   self.logger.warning("failed to close connection while reconnecting due: %s",e)
-            if self.__receiver is not None:
-               self.__receiver.stop()
-            self.connection = Session.ConnectionHolder.create(
-            ApResolver.get_random_accesspoint(), self.__inner.conf)
+            self.logger.warning("Failed to reconnect after retrying due to %s", e)
+    
         self.connect()
         self.__authenticate_partial(
             Authentication.LoginCredentials(
