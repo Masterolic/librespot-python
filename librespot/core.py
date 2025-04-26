@@ -1226,7 +1226,8 @@ class Session(Closeable, MessageListener, SubListener):
         for attempt in range(1, max_retries + 1):
             ex=None
             try:
-               self.__session.reconnect()
+               self.connection = Session.ConnectionHolder.create(
+               ApResolver.get_random_accesspoint(), self.__inner.conf)
                self.__session.logger.info("Reconnected successfully.")
                return
             except ConnectionRefusedError as e:
