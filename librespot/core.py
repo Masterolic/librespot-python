@@ -17,7 +17,7 @@ import threading
 import time
 import typing
 import urllib.parse
-
+import traceback 
 import defusedxml.ElementTree
 import requests
 import websocket
@@ -1251,6 +1251,7 @@ class Session(Closeable, MessageListener, SubListener):
         try:
            self.reconnect_with_retry(self) 
         except Exception as e:
+            print(traceback.format_exc())
             self.logger.warning("Failed to reconnect after retrying due to %s", e)
     
         self.connect()
