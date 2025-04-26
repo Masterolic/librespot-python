@@ -1249,7 +1249,7 @@ class Session(Closeable, MessageListener, SubListener):
         if self.__receiver is not None:
            self.__receiver.stop()
         try:
-           reconnect_with_retry(self) 
+           self.reconnect_with_retry(self) 
         except Exception as e:
             self.logger.warning("Failed to reconnect after retrying due to %s", e)
     
