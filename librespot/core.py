@@ -1228,15 +1228,15 @@ class Session(Closeable, MessageListener, SubListener):
             try:
                self.connection = Session.ConnectionHolder.create(
                ApResolver.get_random_accesspoint(), self.__inner.conf)
-               self.__session.logger.info("Reconnected successfully.")
+               self.logger.info("Reconnected successfully.")
                return
             except ConnectionRefusedError as e:
                 ex = e
-                self.__session.logger.warning(
+                self.logger.warning(
                   f"Reconnect attempt {attempt} failed: {e}"
                   )
                 time.sleep(delay)
-        self.__session.logger.error("All reconnect attempts failed.")
+        self.logger.error("All reconnect attempts failed.")
         raise ex
     def reconnect(self) -> None:
         """Reconnect to the Spotify Server"""
