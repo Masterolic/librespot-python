@@ -1231,6 +1231,8 @@ class Session(Closeable, MessageListener, SubListener):
                self.logger.info("Reconnected successfully.")
                return
             except ConnectionRefusedError as e:
+                if self.__receiver is not None:
+                   self.__receiver.stop()
                 ex = e
                 self.logger.warning(
                   f"Reconnect attempt {attempt} failed: {e}"
