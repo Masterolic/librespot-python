@@ -2072,12 +2072,13 @@ class Session(Closeable, MessageListener, SubListener):
                     try:
                         self.__session.send(Packet.Type.pong, packet.payload)
                     except (ConnectionResetError, OSError) as e:
-                       self.__session.logger.error(f"[SEND FAIL] Pong failed due to: {e}")
+                       self.__session.logger.error(f"send fail Pong failed due to: {e}")
                        # Optional: try reconnecting immediately
                        try:
+                           self.stop()
                            self.__session.reconnect()
                        except Exception as reconnect_error:
-                         self.__session.logger.error(f"[RECONNECT FAIL] {reconnect_error}")
+                         self.__session.logger.error(f"anonymous reconnect fail due to{reconnect_error}")
                     
                 elif cmd == Packet.Type.pong_ack:
                     continue
