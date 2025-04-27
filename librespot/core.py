@@ -2048,6 +2048,7 @@ class Session(Closeable, MessageListener, SubListener):
                     continue 
                 except (RuntimeError, ConnectionResetError) as ex:
                     if self.__running.is_set():
+                        self.stop()
                         self.__session.logger.fatal(
                             "Failed reading packet! {}".format(ex), exc_info=True)
                         self.__session.reconnect()
@@ -2061,6 +2062,7 @@ class Session(Closeable, MessageListener, SubListener):
 
                     def anonymous():
                         """ """
+                        self.stop()
                         self.__session.logger.warning(
                             "Socket timed out. Reconnecting...")
                         self.__session.reconnect()
