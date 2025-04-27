@@ -1669,8 +1669,6 @@ class Session(Closeable, MessageListener, SubListener):
                 ApResolver.get_random_accesspoint(),
             )
             except Exception as e:
-                 if self.__receiver is not None:
-                    self.__receiver.stop()
                  session = Session(
                  Session.Inner(
                     self.device_type,
