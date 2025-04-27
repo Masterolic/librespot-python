@@ -911,6 +911,7 @@ class Session(Closeable, MessageListener, SubListener):
     def __init__(self, inner: Inner, address: str) -> None:
         self.__client = Session.create_client(inner.conf)
         self.connection = Session.ConnectionHolder.create(address, None)
+        self.__receiver = None
         self.__inner = inner
         self.__keys = DiffieHellman()
         self.logger.info("Created new session! device_id: {}, ap: {}".format(
@@ -1230,7 +1231,7 @@ class Session(Closeable, MessageListener, SubListener):
                ApResolver.get_random_accesspoint(), self.__inner.conf)
                self.logger.info("Reconnected successfully.")
                return
-            except ConnectionRefusedError as e:
+            except (Exception, ConnectionRefusedError) as e:
                 if self.__receiver is not None:
                    self.__receiver.stop()
                 ex = e
@@ -1668,6 +1669,8 @@ class Session(Closeable, MessageListener, SubListener):
                 ApResolver.get_random_accesspoint(),
             )
             except Exception as e:
+                 if self.__receiver is not None:
+                    self.__receiver.stop()
                  session = Session(
                  Session.Inner(
                     self.device_type,
