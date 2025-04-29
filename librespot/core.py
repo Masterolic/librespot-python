@@ -2053,7 +2053,7 @@ class Session(Closeable, MessageListener, SubListener):
                     if self.__running.is_set():
                         self.stop()
                         self.__session.logger.fatal(
-                            "Failed reading packet! {}".format(ex), exc_info=True)
+                            "Failed reading packet! {}".format(ex), exc_info=False)
                         self.__session.reconnect()
                     break
                 if not self.__running.is_set():
