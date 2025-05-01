@@ -1934,7 +1934,7 @@ class Session(Closeable, MessageListener, SubListener):
 
             """
             last_timeout = self.__socket.gettimeout()
-            self.__socket.settimeout(2)
+            self.__socket.settimeout(1)
             try:
                 data = self.__socket.recv(length)
                 return data
