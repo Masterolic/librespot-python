@@ -1966,6 +1966,15 @@ class Session(Closeable, MessageListener, SubListener):
             """
             self.__socket.settimeout(None if seconds == 0 else seconds)
 
+        def get_timeout(self) -> None:
+            """Set socket's timeout
+
+            :param seconds: Number of seconds until timeout
+            :param seconds: float:
+
+            """
+            return self.__socket.gettimeout()
+            
         def write(self, data: bytes) -> None:
             """Write data to buffer
 
