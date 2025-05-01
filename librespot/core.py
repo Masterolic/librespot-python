@@ -2041,7 +2041,7 @@ class Session(Closeable, MessageListener, SubListener):
                 packet: Packet
                 cmd: bytes
                 try:
-                    self.__session.connection.set_timeout(1)
+                    print(f"\n\n timeout={self.__session.connection.get_timeout()}")
                     packet = self.__session.cipher_pair.receive_encoded(
                         self.__session.connection)
                     cmd = Packet.Type.parse(packet.cmd)
