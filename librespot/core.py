@@ -2052,6 +2052,7 @@ class Session(Closeable, MessageListener, SubListener):
                                    packet.payload))
                         continue
                 except TimeoutError:
+                    print(traceback.format_exc())
                     continue 
                 except (RuntimeError, ConnectionResetError) as ex:
                     if self.__running.is_set():
