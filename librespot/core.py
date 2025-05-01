@@ -2041,7 +2041,7 @@ class Session(Closeable, MessageListener, SubListener):
                 packet: Packet
                 cmd: bytes
                 try:
-            #        self.__session.connection.set_timeout(5)
+                    self.__session.connection.set_timeout(1)
                     packet = self.__session.cipher_pair.receive_encoded(
                         self.__session.connection)
                     cmd = Packet.Type.parse(packet.cmd)
@@ -2052,7 +2052,6 @@ class Session(Closeable, MessageListener, SubListener):
                                    packet.payload))
                         continue
                 except TimeoutError:
-                    print(traceback.format_exc())
                     continue 
                 except (RuntimeError, ConnectionResetError) as ex:
                     if self.__running.is_set():
