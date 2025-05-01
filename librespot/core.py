@@ -1935,8 +1935,13 @@ class Session(Closeable, MessageListener, SubListener):
             """
             last_timeout = self.__socket.gettimeout()
             self.__socket.settimeout(20)
-            data = self.__socket.recv(length)
-            self.__socket.settimeout(last_timeout)
+            try:
+                data = self.__socket.recv(length)
+            except Exception as e:
+                print(e)
+                print(traceback.format_exc())
+            finally:
+                self.__socket.settimeout(last_timeout)
             return data
 
         def read_int(self) -> int:
