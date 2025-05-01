@@ -1223,7 +1223,7 @@ class Session(Closeable, MessageListener, SubListener):
         """ """
         return self.__inner.preferred_locale
 
-    def reconnect_with_retry(self, max_retries=3, delay=2):
+    def reconnect_with_retry(self, max_retries=3, delay=5):
         for attempt in range(1, max_retries + 1):
             ex=None
             try:
@@ -1910,7 +1910,12 @@ class Session(Closeable, MessageListener, SubListener):
             ap_address = address.split(":")[0]
             ap_port = int(address.split(":")[1])
             sock = socket.socket()
-            sock.connect((ap_address, ap_port))
+            for _ in range(10):
+               try:
+                   sock.connect((ap_address, ap_port))
+                    break
+               except:
+                   continue 
             return Session.ConnectionHolder(sock)
 
         def close(self) -> None:
@@ -2043,10 +2048,12 @@ class Session(Closeable, MessageListener, SubListener):
             """Receive Packet thread function"""
             self.__session.logger.info("Session.Receiver started")
             while self.__running.is_set():
+                if not self.__running.is_set():
+                    break
                 packet: Packet
                 cmd: bytes
                 try:
-                    print(f"\n\n timeout={self.__session.connection.get_timeout()}")
+                 #,   print(f"\n\n timeout={self.__session.connection.get_timeout()}")
                     packet = self.__session.cipher_pair.receive_encoded(
                         self.__session.connection)
                     cmd = Packet.Type.parse(packet.cmd)
@@ -2060,38 +2067,15 @@ class Session(Closeable, MessageListener, SubListener):
                     continue 
                 except (RuntimeError, ConnectionResetError) as ex:
                     if self.__running.is_set():
-                        self.stop()
                         self.__session.logger.fatal(
                             "Failed reading packet! {}".format(ex), exc_info=False)
-                        self.__session.reconnect()
-                    break
-                if not self.__running.is_set():
-                    break
+                        try:
+                            self.__session.reconnect()
+                        except:
+                            pass 
+                    break  
                 if cmd == Packet.Type.ping:
-                    if self.__session.scheduled_reconnect is not None:
-                        self.__session.scheduler.cancel(
-                            self.__session.scheduled_reconnect)
-
-                    def anonymous():
-                        """ """
-                        self.stop()
-                        self.__session.logger.warning(
-                            "Socket timed out. Reconnecting...")
-                        self.__session.reconnect()
-
-                    self.__session.scheduled_reconnect = self.__session.scheduler.enter(
-                        2 * 60 + 5, 1, anonymous)
-                    try:
-                        self.__session.send(Packet.Type.pong, packet.payload)
-                    except (ConnectionResetError, OSError) as e:
-                       self.__session.logger.error(f"send fail Pong failed due to: {e}")
-                       # Optional: try reconnecting immediately
-                       try:
-                           self.stop()
-                           self.__session.reconnect()
-                       except Exception as reconnect_error:
-                         self.__session.logger.error(f"anonymous reconnect fail due to{reconnect_error}")
-                    
+                    continue 
                 elif cmd == Packet.Type.pong_ack:
                     continue
                 elif cmd == Packet.Type.country_code:
