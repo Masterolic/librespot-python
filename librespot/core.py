@@ -1934,11 +1934,11 @@ class Session(Closeable, MessageListener, SubListener):
 
             """
             last_timeout = self.__socket.gettimeout()
-            self.__socket.settimeout(20)
+            self.__socket.settimeout(2)
             try:
                 data = self.__socket.recv(length)
             except Exception as e:
-                print(e)
+                print(e, last_timeout)
                 print(traceback.format_exc())
             finally:
                 self.__socket.settimeout(last_timeout)
