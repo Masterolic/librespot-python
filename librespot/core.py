@@ -1913,7 +1913,7 @@ class Session(Closeable, MessageListener, SubListener):
             for _ in range(10):
                try:
                    sock.connect((ap_address, ap_port))
-                    break
+                   break
                except:
                    continue 
             return Session.ConnectionHolder(sock)
