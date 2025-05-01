@@ -1937,12 +1937,12 @@ class Session(Closeable, MessageListener, SubListener):
             self.__socket.settimeout(2)
             try:
                 data = self.__socket.recv(length)
+                return data
             except Exception as e:
                 print(e, last_timeout)
                 print(traceback.format_exc())
             finally:
                 self.__socket.settimeout(last_timeout)
-            return data
 
         def read_int(self) -> int:
             """Read integer from socket
