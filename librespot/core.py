@@ -1933,11 +1933,7 @@ class Session(Closeable, MessageListener, SubListener):
             :returns: Bytes data from socket
 
             """
-            last_timeout = self.__socket.gettimeout()
-            if last_timeout != 1:
-               self.__socket.settimeout(1)
-            data = self.__socket.recv(length)
-            return data
+            return self.__socket.recv(length)
             
         def read_int(self) -> int:
             """Read integer from socket
