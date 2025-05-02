@@ -1243,20 +1243,6 @@ class Session(Closeable, MessageListener, SubListener):
         raise ex
     def reconnect(self) -> None:
         """Reconnect to the Spotify Server"""
-        if self.connection is not None:
-            try:
-                self.connection.close()
-            except Exception as e:
-                self.logger.warning("failed to close connection while reconnecting due: %s",e)
-            self.__receiver.stop()
-        if self.__receiver is not None:
-           self.__receiver.stop()
-        try:
-           self.reconnect_with_retry() 
-        except Exception as e:
-            print(traceback.format_exc())
-            self.logger.warning("Failed to reconnect after retrying due to %s", e)
-    
         self.connect()
         self.__authenticate_partial(
             Authentication.LoginCredentials(
@@ -2042,7 +2028,8 @@ class Session(Closeable, MessageListener, SubListener):
 
         def stop(self) -> None:
             """ """
-            self.__running.clear()
+            pass
+          #  self.__running.clear()
 
         def run(self) -> None:
             """Receive Packet thread function"""
@@ -2073,7 +2060,7 @@ class Session(Closeable, MessageListener, SubListener):
                             self.__session.reconnect()
                         except:
                             pass 
-                    break  
+                      
                 if cmd == Packet.Type.ping:
                     continue 
                 elif cmd == Packet.Type.pong_ack:
