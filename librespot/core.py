@@ -1223,7 +1223,7 @@ class Session(Closeable, MessageListener, SubListener):
         """ """
         return self.__inner.preferred_locale
 
-    def reconnect_with_retry(self, max_retries=3, delay=5):
+    def reconnect_with_retry(self, max_retries=3, delay=2):
         for attempt in range(1, max_retries + 1):
             ex=None
             try:
@@ -1243,6 +1243,20 @@ class Session(Closeable, MessageListener, SubListener):
         raise ex
     def reconnect(self) -> None:
         """Reconnect to the Spotify Server"""
+        if self.connection is not None:
+            try:
+                self.connection.close()
+            except Exception as e:
+                self.logger.warning("failed to close connection while reconnecting due: %s",e)
+            self.__receiver.stop()
+        if self.__receiver is not None:
+           self.__receiver.stop()
+        try:
+           self.reconnect_with_retry() 
+        except Exception as e:
+            print(traceback.format_exc())
+            self.logger.warning("Failed to reconnect after retrying due to %s", e)
+    
         self.connect()
         self.__authenticate_partial(
             Authentication.LoginCredentials(
@@ -1896,12 +1910,7 @@ class Session(Closeable, MessageListener, SubListener):
             ap_address = address.split(":")[0]
             ap_port = int(address.split(":")[1])
             sock = socket.socket()
-            for _ in range(10):
-               try:
-                   sock.connect((ap_address, ap_port))
-                   break
-               except:
-                   continue 
+            sock.connect((ap_address, ap_port))
             return Session.ConnectionHolder(sock)
 
         def close(self) -> None:
@@ -1925,7 +1934,7 @@ class Session(Closeable, MessageListener, SubListener):
 
             """
             return self.__socket.recv(length)
-            
+
         def read_int(self) -> int:
             """Read integer from socket
 
@@ -1953,15 +1962,6 @@ class Session(Closeable, MessageListener, SubListener):
             """
             self.__socket.settimeout(None if seconds == 0 else seconds)
 
-        def get_timeout(self) -> None:
-            """Set socket's timeout
-
-            :param seconds: Number of seconds until timeout
-            :param seconds: float:
-
-            """
-            return self.__socket.gettimeout()
-            
         def write(self, data: bytes) -> None:
             """Write data to buffer
 
@@ -2028,19 +2028,16 @@ class Session(Closeable, MessageListener, SubListener):
 
         def stop(self) -> None:
             """ """
-            pass
-          #  self.__running.clear()
+            self.__running.clear()
 
         def run(self) -> None:
             """Receive Packet thread function"""
             self.__session.logger.info("Session.Receiver started")
             while self.__running.is_set():
-                if not self.__running.is_set():
-                    break
                 packet: Packet
                 cmd: bytes
                 try:
-                 #,   print(f"\n\n timeout={self.__session.connection.get_timeout()}")
+            #        self.__session.connection.set_timeout(5)
                     packet = self.__session.cipher_pair.receive_encoded(
                         self.__session.connection)
                     cmd = Packet.Type.parse(packet.cmd)
@@ -2054,13 +2051,13 @@ class Session(Closeable, MessageListener, SubListener):
                     continue 
                 except (RuntimeError, ConnectionResetError) as ex:
                     if self.__running.is_set():
+                        self.stop()
                         self.__session.logger.fatal(
                             "Failed reading packet! {}".format(ex), exc_info=False)
-                        try:
-                            self.__session.reconnect()
-                        except:
-                            pass 
-                      
+                        self.__session.reconnect()
+                    break
+                if not self.__running.is_set():
+                    break
                 if cmd == Packet.Type.ping:
                     continue 
                 elif cmd == Packet.Type.pong_ack:
