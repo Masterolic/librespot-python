@@ -17,7 +17,7 @@ import threading
 import time
 import typing
 import urllib.parse
-import traceback 
+
 import defusedxml.ElementTree
 import requests
 import websocket
@@ -71,6 +71,7 @@ class ApiClient(Closeable):
 
     def __init__(self, session: Session):
         self.__session = session
+      #  __client_token_str = None
         self.__base_url = "https://{}".format(ApResolver.get_random_spclient())
 
     def build_request(
@@ -369,9 +370,9 @@ class ApResolver:
 
         """
         app_names = ["gae2-dealer.spotify.com:443","guc3-dealer.spotify.com:443","gue1-dealer.spotify.com:443","gew1-dealer.spotify.com:443"]
-        random.shuffle(app_names)
+        random.sample(app_names, len(app_names))
         return random.choice(app_names)
-        #return ApResolver.get_random_of("dealer")
+    #    return ApResolver.get_random_of("dealer")
 
     @staticmethod
     def get_random_spclient() -> str:
@@ -382,9 +383,9 @@ class ApResolver:
 
         """
         app_names = ["gae2-spclient.spotify.com:443","guc3-spclient.spotify.com:443","gue1-spclient.spotify.com:443","gew4-spclient.spotify.com:443"]
-        random.shuffle(app_names)
+        random.sample(app_names, len(app_names))
         return random.choice(app_names)
-        #return ApResolver.get_random_of("spclient")
+    #    return ApResolver.get_random_of("spclient")
 
     @staticmethod
     def get_random_accesspoint() -> str:
@@ -395,9 +396,9 @@ class ApResolver:
 
         """
         app_names = ["ap-gae2.spotify.com:4070","ap-gae2.spotify.com:443","ap-gae2.spotify.com:80","ap-guc3.spotify.com:4070","ap-gew1.spotify.com:443","ap-gew4.spotify.com:80"]
-        random.shuffle(app_names)
+        random.sample(app_names, len(app_names))
         return random.choice(app_names)
-    #    return ApResolver.get_random_of("accesspoint")
+   #     return ApResolver.get_random_of("accesspoint")
 
 
 class DealerClient(Closeable):
@@ -880,14 +881,14 @@ class Session(Closeable, MessageListener, SubListener):
     __cdn_manager: typing.Union[CdnManager, None]
     __channel_manager: typing.Union[ChannelManager, None] = None
     __client: typing.Union[requests.Session, None]
-    __closed = False
-    __closing = False
+  #  __closed = False
+#    __closing = False
     __content_feeder: typing.Union[PlayableContentFeeder, None]
     __dealer_client: typing.Union[DealerClient, None] = None
     __event_service: typing.Union[EventService, None] = None
     __keys: DiffieHellman
     __mercury_client: MercuryClient
-    __receiver: typing.Union[Receiver, None] = None
+ #   __receiver: typing.Union[Receiver, None] = None
     __search: typing.Union[SearchManager, None]
     __server_key = (b"\xac\xe0F\x0b\xff\xc20\xaf\xf4k\xfe\xc3\xbf\xbf\x86="
                     b"\xa1\x91\xc6\xcc3l\x93\xa1O\xb3\xb0\x16\x12\xac\xacj"
@@ -911,7 +912,9 @@ class Session(Closeable, MessageListener, SubListener):
     def __init__(self, inner: Inner, address: str) -> None:
         self.__client = Session.create_client(inner.conf)
         self.connection = Session.ConnectionHolder.create(address, None)
-        self.__receiver = None
+        self.__receiver: typing.Union[Receiver, None] = None
+        self.__closed = False
+        self.__closing = False
         self.__inner = inner
         self.__keys = DiffieHellman()
         self.logger.info("Created new session! device_id: {}, ap: {}".format(
@@ -1217,46 +1220,19 @@ class Session(Closeable, MessageListener, SubListener):
         for i in range(len(product)):
             self.__user_attributes[product[i].tag] = product[i].text
         self.logger.debug("Parsed product info: {}".format(
-            str(self.__user_attributes)[:20]))
+            self.__user_attributes))
 
     def preferred_locale(self) -> str:
         """ """
         return self.__inner.preferred_locale
 
-    def reconnect_with_retry(self, max_retries=3, delay=2):
-        for attempt in range(1, max_retries + 1):
-            ex=None
-            try:
-               self.connection = Session.ConnectionHolder.create(
-               ApResolver.get_random_accesspoint(), self.__inner.conf)
-               self.logger.info("Reconnected successfully.")
-               return
-            except (Exception, ConnectionRefusedError) as e:
-                if self.__receiver is not None:
-                   self.__receiver.stop()
-                ex = e
-                self.logger.warning(
-                  f"Reconnect attempt {attempt} failed: {e}"
-                  )
-                time.sleep(delay)
-        self.logger.error("All reconnect attempts failed.")
-        raise ex
     def reconnect(self) -> None:
         """Reconnect to the Spotify Server"""
         if self.connection is not None:
-            try:
-                self.connection.close()
-            except Exception as e:
-                self.logger.warning("failed to close connection while reconnecting due: %s",e)
+            self.connection.close()
             self.__receiver.stop()
-        if self.__receiver is not None:
-           self.__receiver.stop()
-        try:
-           self.reconnect_with_retry() 
-        except Exception as e:
-            print(traceback.format_exc())
-            self.logger.warning("Failed to reconnect after retrying due to %s", e)
-    
+        self.connection = Session.ConnectionHolder.create(
+            ApResolver.get_random_accesspoint(), self.__inner.conf)
         self.connect()
         self.__authenticate_partial(
             Authentication.LoginCredentials(
@@ -1404,7 +1380,7 @@ class Session(Closeable, MessageListener, SubListener):
     class AbsBuilder:
         """ """
         conf = None
-        device_id = None
+  #      device_id = None
         device_name = "librespot-python"
         device_type = Connect.DeviceType.COMPUTER
         preferred_locale = "en"
@@ -1414,6 +1390,7 @@ class Session(Closeable, MessageListener, SubListener):
                 self.conf = Session.Configuration.Builder().build()
             else:
                 self.conf = conf
+            self.device_id = None
 
         def set_preferred_locale(self, locale: str) -> Session.AbsBuilder:
             """
@@ -1657,8 +1634,7 @@ class Session(Closeable, MessageListener, SubListener):
             """
             if self.login_credentials is None:
                 raise RuntimeError("You must select an authentication method.")
-            try:
-                session = Session(
+            session = Session(
                 Session.Inner(
                     self.device_type,
                     self.device_name,
@@ -1668,17 +1644,6 @@ class Session(Closeable, MessageListener, SubListener):
                 ),
                 ApResolver.get_random_accesspoint(),
             )
-            except Exception as e:
-                 session = Session(
-                 Session.Inner(
-                    self.device_type,
-                    self.device_name,
-                    self.preferred_locale,
-                    self.conf,
-                    self.device_id,
-                   ),
-                 ApResolver.get_random_accesspoint(),
-                 )
             session.connect()
             session.authenticate(self.login_credentials)
             return session
@@ -1994,7 +1959,7 @@ class Session(Closeable, MessageListener, SubListener):
         device_type: Connect.DeviceType = None
         device_name: str
         device_id: str
-        conf = None
+    #    conf = None
         preferred_locale: str
 
         def __init__(
@@ -2016,28 +1981,27 @@ class Session(Closeable, MessageListener, SubListener):
         """ """
         __session: Session
         __thread: threading.Thread
+      #  __running: bool = True
 
         def __init__(self, session):
-            self.__running = threading.Event()
-            self.__running.set()
             self.__session = session
             self.__thread = threading.Thread(target=self.run)
             self.__thread.daemon = True
             self.__thread.name = "session-packet-receiver"
             self.__thread.start()
+            self.__running: bool = True
 
         def stop(self) -> None:
             """ """
-            self.__running.clear()
+            self.__running = False
 
         def run(self) -> None:
             """Receive Packet thread function"""
             self.__session.logger.info("Session.Receiver started")
-            while self.__running.is_set():
+            while self.__running:
                 packet: Packet
                 cmd: bytes
                 try:
-            #        self.__session.connection.set_timeout(5)
                     packet = self.__session.cipher_pair.receive_encoded(
                         self.__session.connection)
                     cmd = Packet.Type.parse(packet.cmd)
@@ -2047,16 +2011,13 @@ class Session(Closeable, MessageListener, SubListener):
                             format(util.bytes_to_hex(packet.cmd),
                                    packet.payload))
                         continue
-                except TimeoutError:
-                    continue 
                 except (RuntimeError, ConnectionResetError) as ex:
-                    if self.__running.is_set():
-                        self.stop()
+                    if self.__running:
                         self.__session.logger.fatal(
                             "Failed reading packet! {}".format(ex), exc_info=False)
                         self.__session.reconnect()
                     break
-                if not self.__running.is_set():
+                if not self.__running:
                     break
                 if cmd == Packet.Type.ping:
                     if self.__session.scheduled_reconnect is not None:
@@ -2065,24 +2026,13 @@ class Session(Closeable, MessageListener, SubListener):
 
                     def anonymous():
                         """ """
-                        self.stop()
                         self.__session.logger.warning(
                             "Socket timed out. Reconnecting...")
                         self.__session.reconnect()
 
                     self.__session.scheduled_reconnect = self.__session.scheduler.enter(
                         2 * 60 + 5, 1, anonymous)
-                    try:
-                        self.__session.send(Packet.Type.pong, packet.payload)
-                    except (ConnectionResetError, OSError) as e:
-                       self.__session.logger.error(f"send fail Pong failed due to: {e}")
-                       # Optional: try reconnecting immediately
-                       try:
-                           self.stop()
-                           self.__session.reconnect()
-                       except Exception as reconnect_error:
-                         self.__session.logger.error(f"anonymous reconnect fail due to{reconnect_error}")
-                    
+                    self.__session.send(Packet.Type.pong, packet.payload)
                 elif cmd == Packet.Type.pong_ack:
                     continue
                 elif cmd == Packet.Type.country_code:
