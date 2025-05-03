@@ -1876,10 +1876,13 @@ class Session(Closeable, MessageListener, SubListener):
             sock = socket.socket()
             for _ in range(10):
                try:
+                   ap_ports = [ap_port, 443]
+                   ap_port = random.choice(ap_ports)
                    sock.connect((ap_address, ap_port))
                    break
                except ConnectionRefusedError:
                    print("Sock connect ConnectionRefusedError:")
+                   time.sleep(1)
             return Session.ConnectionHolder(sock)
 
         def close(self) -> None:
