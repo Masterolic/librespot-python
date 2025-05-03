@@ -1986,9 +1986,9 @@ class Session(Closeable, MessageListener, SubListener):
             self.__session = session
             self.__thread = threading.Thread(target=self.run)
             self.__thread.daemon = True
+            self.__running: bool = True
             self.__thread.name = "session-packet-receiver"
             self.__thread.start()
-            self.__running: bool = True
 
         def stop(self) -> None:
             """ """
