@@ -1874,7 +1874,12 @@ class Session(Closeable, MessageListener, SubListener):
             ap_address = address.split(":")[0]
             ap_port = int(address.split(":")[1])
             sock = socket.socket()
-            sock.connect((ap_address, ap_port))
+            for _ in range(10):
+               try:
+                   sock.connect((ap_address, ap_port))
+                   break
+               except ConnectionRefusedError:
+                   print("Sock connect ConnectionRefusedError:")
             return Session.ConnectionHolder(sock)
 
         def close(self) -> None:
