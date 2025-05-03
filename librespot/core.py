@@ -2059,7 +2059,30 @@ class Session(Closeable, MessageListener, SubListener):
                 if not self.__running.is_set():
                     break
                 if cmd == Packet.Type.ping:
-                    continue 
+                    if self.__session.scheduled_reconnect is not None:
+                        self.__session.scheduler.cancel(
+                            self.__session.scheduled_reconnect)
+
+                    def anonymous():
+                        """ """
+                        self.stop()
+                        self.__session.logger.warning(
+                            "Socket timed out. Reconnecting...")
+                        self.__session.reconnect()
+
+                    self.__session.scheduled_reconnect = self.__session.scheduler.enter(
+                        2 * 60 + 5, 1, anonymous)
+                    try:
+                        self.__session.send(Packet.Type.pong, packet.payload)
+                    except (ConnectionResetError, OSError) as e:
+                       self.__session.logger.error(f"send fail Pong failed due to: {e}")
+                       # Optional: try reconnecting immediately
+                       try:
+                           self.stop()
+                           self.__session.reconnect()
+                       except Exception as reconnect_error:
+                         self.__session.logger.error(f"anonymous reconnect fail due to{reconnect_error}")
+                    
                 elif cmd == Packet.Type.pong_ack:
                     continue
                 elif cmd == Packet.Type.country_code:
