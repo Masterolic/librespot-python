@@ -317,6 +317,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
     class SyncCallback(Callback):
           def __init__(self, audio_key_manager: AudioKeyManager):
               self.__audio_key_manager = audio_key_manager
+              self.audio_key_timeout = AudioKeyManager.audio_key_request_timeout
               self.__reference = queue.Queue()
               self.__reference_lock = threading.Condition()
 
@@ -334,11 +335,10 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                    self.__reference_lock.notify_all()
 
           def wait_response(self) -> bytes:
-              try:
-                   return self.__reference.get(block=True, timeout=5)  # Directly using timeout
-              except queue.Empty:
-                  raise KeyUnavailableError("Failed to receive key: Timeout")
-
+            with self.__reference_lock:
+                self.__reference_lock.wait(
+                    self.audio_key_timeout)
+                return self.__reference.get(block=False)
 
 class CdnFeedHelper:
     _LOGGER: logging = logging.getLogger(__name__)
