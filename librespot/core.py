@@ -1227,9 +1227,12 @@ class Session(Closeable, MessageListener, SubListener):
 
     def reconnect(self) -> None:
         """Reconnect to the Spotify Server"""
+        if self.__receiver is not None:
+            self.__receiver.stop()
+            self.__receiver = None
         if self.connection is not None:
             self.connection.close()
-            self.__receiver.stop()
+            self.connection = None
         self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
         self.connect()
@@ -1876,8 +1879,9 @@ class Session(Closeable, MessageListener, SubListener):
             sock = socket.socket()
             for _ in range(10):
                try:
-                   ap_ports = [ap_port, 443]
-                   ap_port = random.choice(ap_ports)
+                   address = ApResolver.get_random_accesspoint()
+                   ap_address = address.split(":")[0]
+                   ap_port = int(address.split(":")[1])
                    sock.connect((ap_address, ap_port))
                    break
                except ConnectionRefusedError:
