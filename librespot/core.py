@@ -1240,7 +1240,10 @@ class Session(Closeable, MessageListener, SubListener):
             self.connection = None
         self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
-        self.connect()
+        try:
+            self.connect()
+        except RuntimeError:
+            self.connect()
         self.__authenticate_partial(
             Authentication.LoginCredentials(
                 typ=self.__ap_welcome.reusable_auth_credentials_type,
@@ -2048,7 +2051,10 @@ class Session(Closeable, MessageListener, SubListener):
 
                     self.__session.scheduled_reconnect = self.__session.scheduler.enter(
                         2 * 60 + 5, 1, anonymous)
-                    self.__session.send(Packet.Type.pong, packet.payload)
+                    try:
+                        self.__session.send(Packet.Type.pong, packet.payload)
+                    except ConnectionResetError:
+                        self.__session.reconnect()
                 elif cmd == Packet.Type.pong_ack:
                     continue
                 elif cmd == Packet.Type.country_code:
