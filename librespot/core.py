@@ -1231,7 +1231,12 @@ class Session(Closeable, MessageListener, SubListener):
             self.__receiver.stop()
             self.__receiver = None
         if self.connection is not None:
-            self.connection.close()
+            for _ in range(2):
+               try:
+                   self.connection.close()
+                   break
+               except Exception as e:
+                   self.logger.info("connection close failed librespot-python %s", e)
             self.connection = None
         self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
