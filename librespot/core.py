@@ -1243,6 +1243,7 @@ class Session(Closeable, MessageListener, SubListener):
         try:
             self.connect()
         except RuntimeError:
+            time.sleep(2)
             self.connect()
         self.__authenticate_partial(
             Authentication.LoginCredentials(
