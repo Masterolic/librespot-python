@@ -1240,11 +1240,13 @@ class Session(Closeable, MessageListener, SubListener):
             self.connection = None
         self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
-        try:
-            self.connect()
-        except RuntimeError:
-            time.sleep(2)
-            self.connect()
+        for _ in range(3):
+            try:
+                self.connect() #connect
+                break 
+            except Exception as e:
+                self.logger.info("Session.connect() retrying raised error: %s", e)
+                time.sleep(2)
         self.__authenticate_partial(
             Authentication.LoginCredentials(
                 typ=self.__ap_welcome.reusable_auth_credentials_type,
