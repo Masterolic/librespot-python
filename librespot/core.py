@@ -2061,7 +2061,7 @@ class Session(Closeable, MessageListener, SubListener):
                         2 * 60 + 5, 1, anonymous)
                     try:
                         self.__session.send(Packet.Type.pong, packet.payload)
-                    except ConnectionResetError:
+                    except (ConnectionResetError, RuntimeError ):
                         self.__session.reconnect()
                 elif cmd == Packet.Type.pong_ack:
                     continue
