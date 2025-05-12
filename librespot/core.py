@@ -1247,14 +1247,19 @@ class Session(Closeable, MessageListener, SubListener):
             except Exception as e:
                 self.logger.info("Session.connect() retrying raised error: %s", e)
                 time.sleep(2)
-        self.__authenticate_partial(
-            Authentication.LoginCredentials(
+        for _ in range(3):
+            try:
+                self.__authenticate_partial(
+                Authentication.LoginCredentials(
                 typ=self.__ap_welcome.reusable_auth_credentials_type,
                 username=self.__ap_welcome.canonical_username,
                 auth_data=self.__ap_welcome.reusable_auth_credentials,
-            ),
-            True,
-        )
+                 ),
+                 True,
+                  )
+                break
+            except Exception as e:
+                self.logger.info("Re-connect session auth failed due to %s", e)
         self.logger.info("Re-authenticated as {}!".format(
             self.__ap_welcome.canonical_username))
 
