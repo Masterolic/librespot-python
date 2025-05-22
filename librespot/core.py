@@ -1335,6 +1335,9 @@ class Session(Closeable, MessageListener, SubListener):
         if packet.is_cmd(Packet.Type.ap_welcome):
             self.__ap_welcome = Authentication.APWelcome()
             self.__ap_welcome.ParseFromString(packet.payload)
+            if self.__receiver is not None:
+               self.__receiver.stop()
+               self.__receiver = None
             self.__receiver = Session.Receiver(self)
             bytes0x0f = Random.get_random_bytes(0x14)
             self.__send_unchecked(Packet.Type.unknown_0x0f, bytes0x0f)
