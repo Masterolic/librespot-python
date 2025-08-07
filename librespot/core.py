@@ -71,7 +71,7 @@ class ApiClient(Closeable):
     def __init__(self, session: Session):
         self.__session = session
       #  __client_token_str = None
-        self.__base_url = "https://{}".format(ApResolver.get_random_spclient())
+        self.__base_url = "https://spclient.wg.spotify.com" #{}".format(ApResolver.get_random_spclient())
 
     def build_request(
         self,
