@@ -2102,7 +2102,7 @@ class Session(Closeable, MessageListener, SubListener):
                     # handle packet types
                     if cmd == Packet.Type.ping:
                        if self.__session.scheduled_reconnect is not None:
-                       self.__session.scheduler.cancel(self.__session.scheduled_reconnect)
+                          self.__session.scheduler.cancel(self.__session.scheduled_reconnect)
 
                        def anonymous():
                            self.__session.logger.warning("Socket timed out. Reconnecting...")
