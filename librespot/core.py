@@ -1230,43 +1230,69 @@ class Session(Closeable, MessageListener, SubListener):
 
     def reconnect(self) -> None:
         """Reconnect to the Spotify Server"""
+        # Stop receiver first
         if self.__receiver is not None:
-            self.__receiver.stop()
-            self.__receiver = None
+           try:
+               self.__receiver.stop()
+           except Exception as e:
+              self.logger.warning(f"Receiver stop failed: {e}")
+           self.__receiver = None
+                     
+        # Close old connection fully
         if self.connection is not None:
-            for _ in range(2):
+                                                        
+           for _ in range(2):
                try:
+                   # If ConnectionHolder wraps socket, force close raw socket
+                   if hasattr(self.connection, "sock") and self.connection.sock:
+                      try:
+                          self.connection.sock.shutdown(2)  # shutdown both read/write
+                      except Exception:
+                          pass
+                      self.connection.sock.close()
                    self.connection.close()
+                   self.logger.info("Old connection closed.")
                    break
                except Exception as e:
                    self.logger.info("connection close failed librespot-python %s", e)
-            self.connection = None
+                                         
+           self.connection = None
+                     
+        # Create new connection
         self.connection = Session.ConnectionHolder.create(
-            ApResolver.get_random_accesspoint(), self.__inner.conf)
+            ApResolver.get_random_accesspoint(), self.__inner.conf
+           )
+
+        # Try connecting
         for _ in range(3):
             try:
-                self.connect() #connect
-                break 
+                self.connect()  # connect
+                break
             except Exception as e:
-                self.logger.info("Session.connect() retrying raised error: %s", e)
-                time.sleep(2)
-        for i in range(1,4):
+               self.logger.info("Session.connect() retrying raised error: %s", e)
+               time.sleep(2)
+        # Try re-auth
+          
+        for i in range(1, 4):
             try:
                 time.sleep(2)
                 self.__authenticate_partial(
-                Authentication.LoginCredentials(
-                typ=self.__ap_welcome.reusable_auth_credentials_type,
-                username=self.__ap_welcome.canonical_username,
-                auth_data=self.__ap_welcome.reusable_auth_credentials,
-                 ),
-                 True,
-                  )
+                    Authentication.LoginCredentials(
+                       typ=self.__ap_welcome.reusable_auth_credentials_type,
+                       username=self.__ap_welcome.canonical_username,
+                       auth_data=self.__ap_welcome.reusable_auth_credentials,
+                    ),
+                    True,
+                )
                 if self.__ap_welcome:
                    break
             except Exception as e:
-                self.logger.info("Re-connect session auth failed times %s due to %s",i , e)
+                self.logger.info("Re-connect session auth failed attempt %s due to %s", i, e)
+        
         self.logger.info("Re-authenticated as {}!".format(
-            self.__ap_welcome.canonical_username))
+            self.__ap_welcome.canonical_username
+        ))
+
 
     def reconnecting(self) -> bool:
         """ """
@@ -1988,7 +2014,7 @@ class Session(Closeable, MessageListener, SubListener):
 
             """
             self.write(struct.pack(">h", data))
-
+    
     class Inner:
         """ """
         device_type: Connect.DeviceType = None
@@ -2012,105 +2038,128 @@ class Session(Closeable, MessageListener, SubListener):
             self.device_id = (device_id if device_id is not None else
                               util.random_hex_string(40))
 
+    
     class Receiver:
-        """ """
-        __session: Session
-        __thread: threading.Thread
-      #  __running: bool = True
-
-        def __init__(self, session):
-            self.__session = session
-            self.__thread = threading.Thread(target=self.run)
-            self.__thread.daemon = True
-            self.__running: bool = True
-            self.__thread.name = "session-packet-receiver"
-            self.__thread.start()
-
-        def stop(self) -> None:
-            """ """
-            self.__running = False
-
-        def run(self) -> None:
-            """Receive Packet thread function"""
-            self.__session.logger.info("Session.Receiver started")
-            while self.__running:
-                packet: Packet
-                cmd: bytes
-                try:
-                    packet = self.__session.cipher_pair.receive_encoded(
-                        self.__session.connection)
-                    cmd = Packet.Type.parse(packet.cmd)
-                    if cmd is None:
-                        self.__session.logger.info(
-                            "Skipping unknown command cmd: 0x{}, payload: {}".
-                            format(util.bytes_to_hex(packet.cmd),
-                                   packet.payload))
-                        continue
-                except (RuntimeError, ConnectionResetError) as ex:
-                    if self.__running:
-                        self.__session.logger.fatal(
-                            "Failed reading packet! {}".format(ex), exc_info=False)
-                        self.__session.reconnect()
-                    break
-                if not self.__running:
-                    break
-                if cmd == Packet.Type.ping:
-                    if self.__session.scheduled_reconnect is not None:
-                        self.__session.scheduler.cancel(
-                            self.__session.scheduled_reconnect)
-
-                    def anonymous():
-                        """ """
-                        self.__session.logger.warning(
-                            "Socket timed out. Reconnecting...")
-                        self.__session.reconnect()
-
-                    self.__session.scheduled_reconnect = self.__session.scheduler.enter(
-                        2 * 60 + 5, 1, anonymous)
+          """Background receiver for session packets."""
+          def __init__(self, session):
+              self.__session = session
+              self.__thread = threading.Thread(target=self.run, name="session-packet-receiver")
+              self.__thread.daemon = True
+              self.__running: bool = True
+              self.__thread.start()
+          
+          def stop(self) -> None:
+              """Stop the receiver thread and close the connection."""
+              self.__running = False
+              # cancel any scheduled reconnects
+              if getattr(self.__session, "scheduled_reconnect", None):
+                 try:
+                    self.__session.scheduler.cancel(self.__session.scheduled_reconnect)
+                 except Exception:
+                     pass
+                 self.__session.scheduled_reconnect = None
+             # close the socket if open
+              if getattr(self.__session, "connection", None):
+                 try:
+                     self.__session.connection.close()
+                     self.__session.logger.info("Receiver: connection closed.")
+                 except Exception as e:
+                     self.__session.logger.warning(f"Receiver: error closing connection {e}")
+              # wait for thread to exit
+              if self.__thread.is_alive():
+                 self.__thread.join(timeout=2)
+                 if self.__thread.is_alive():
+                    self.__session.logger.warning("Receiver thread did not stop in time.")
+          
+          def run(self) -> None:
+              """Receive Packet thread function."""
+              self.__session.logger.info("Session.Receiver started")
+              while self.__running:                                     
                     try:
-                        self.__session.send(Packet.Type.pong, packet.payload)
-                    except (ConnectionResetError, RuntimeError ):
-                        self.__session.reconnect()
-                elif cmd == Packet.Type.pong_ack:
-                    continue
-                elif cmd == Packet.Type.country_code:
-                    self.__session.__country_code = packet.payload.decode()
-                    self.__session.logger.info(
-                        "Received country_code: {}".format(
-                            self.__session.__country_code))
-                elif cmd == Packet.Type.license_version:
-                    license_version = io.BytesIO(packet.payload)
-                    license_id = struct.unpack(">h",
-                                               license_version.read(2))[0]
-                    if license_id != 0:
-                        buffer = license_version.read()
-                        self.__session.logger.info(
-                            "Received license_version: {}, {}".format(
-                                license_id, buffer.decode()))
+                        packet = self.__session.cipher_pair.receive_encoded(
+                        self.__session.connection
+                        )
+                        cmd = Packet.Type.parse(packet.cmd)
+                        if cmd is None:
+                           self.__session.logger.info(
+                           "Skipping unknown command cmd: 0x{}, payload: {}".format(
+                            util.bytes_to_hex(packet.cmd), packet.payload
+                            )
+                            )
+                           continue 
+                                                
+                    except (RuntimeError, ConnectionResetError) as ex:
+                       if self.__running:
+                          self.__session.logger.fatal(
+                           f"Failed reading packet! {ex}", exc_info=False
+                           )
+                          self.__session.reconnect()
+                       break
+                                   
+                    if not self.__running:
+                       break
+     
+                    # handle packet types
+                    if cmd == Packet.Type.ping:
+                       if self.__session.scheduled_reconnect is not None:
+                       self.__session.scheduler.cancel(self.__session.scheduled_reconnect)
+
+                       def anonymous():
+                           self.__session.logger.warning("Socket timed out. Reconnecting...")
+                           self.__session.reconnect()
+
+                       self.__session.scheduled_reconnect = self.__session.scheduler.enter(
+                        2 * 60 + 5, 1, anonymous
+                       )                                    
+                       try:
+                           self.__session.send(Packet.Type.pong, packet.payload)
+                       except (ConnectionResetError, RuntimeError):
+                          self.__session.reconnect()
+                    elif cmd == Packet.Type.pong_ack:
+                         continue
+                    elif cmd == Packet.Type.country_code:
+                         self.__session.__country_code = packet.payload.decode()
+                         self.__session.logger.info(
+                         f"Received country_code: {self.__session.__country_code}"
+                         )
+                    elif cmd == Packet.Type.license_version:
+                         license_version = io.BytesIO(packet.payload)
+                         license_id = struct.unpack(">h", license_version.read(2))[0]
+                         if license_id != 0:
+                            buffer = license_version.read()
+                            self.__session.logger.info(
+                                f"Received license_version: {license_id}, {buffer.decode()}"
+                            )
+                         else:
+                            self.__session.logger.info(
+                              f"Received license_version: {license_id}"
+                               )
+                                               
+                    elif cmd == Packet.Type.unknown_0x10:
+                         self.__session.logger.debug(
+                              f"Received 0x10: {util.bytes_to_hex(packet.payload)}"
+                         )
+                    elif cmd in [
+                         Packet.Type.mercury_sub,
+                         Packet.Type.mercury_unsub,
+                         Packet.Type.mercury_event,
+                         Packet.Type.mercury_req,
+                    ]:
+                             self.__session.mercury().dispatch(packet)
+                    elif cmd in [Packet.Type.aes_key, Packet.Type.aes_key_error]:
+                         self.__session.audio_key().dispatch(packet)
+                    elif cmd in [
+                         Packet.Type.channel_error,
+                         Packet.Type.stream_chunk_res,
+                    ]:
+                         self.__session.channel().dispatch(packet)
+                    elif cmd == Packet.Type.product_info:
+                         self.__session.parse_product_info(packet.payload)
                     else:
                         self.__session.logger.info(
-                            "Received license_version: {}".format(license_id))
-                elif cmd == Packet.Type.unknown_0x10:
-                    self.__session.logger.debug("Received 0x10: {}".format(
-                        util.bytes_to_hex(packet.payload)))
-                elif cmd in [
-                        Packet.Type.mercury_sub,
-                        Packet.Type.mercury_unsub,
-                        Packet.Type.mercury_event,
-                        Packet.Type.mercury_req,
-                ]:
-                    self.__session.mercury().dispatch(packet)
-                elif cmd in [Packet.Type.aes_key, Packet.Type.aes_key_error]:
-                    self.__session.audio_key().dispatch(packet)
-                elif cmd in [
-                        Packet.Type.channel_error, Packet.Type.stream_chunk_res
-                ]:
-                    self.__session.channel().dispatch(packet)
-                elif cmd == Packet.Type.product_info:
-                    self.__session.parse_product_info(packet.payload)
-                else:
-                    self.__session.logger.info("Skipping {}".format(
-                        util.bytes_to_hex(cmd)))
+                        f"Skipping {util.bytes_to_hex(cmd)}"
+                      )
+                
 
     class SpotifyAuthenticationException(Exception):
         """ """
