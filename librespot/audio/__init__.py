@@ -291,20 +291,37 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         finally:
              with self.__seq_holder_lock:
                   self.__callbacks.pop(seq, None)  # Clean up the callback
-                
-    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
-        global reading_pending
+                            
+    
+    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True, timeout: int = 10) -> bytes:
+        global reading_pending         
         try:
-            with read_pending:
+            with pending_lock:  # safely increment counter
                  reading_pending += 1
-            with read_lock:
-                 key = self.get_key(gid, file_id, retry=retry)
-                 return key
-        except Exception as e:
-             raise KeyUnavailableError(f"Failed to fetch audio key: {e}")
+            result = {}
+            exc = {}
+
+            def wrapper():
+                try:
+                    result["key"] = self.get_key(gid, file_id, retry=retry)
+                except Exception as e:
+                   exc["error"] = e
+
+            t = threading.Thread(target=wrapper)
+            t.start()
+            t.join(timeout)
+
+            if t.is_alive():
+               raise KeyUnavailableError(f"⏳ Timeout: get_key took longer than {timeout}s")
+
+            if "error" in exc:
+               raise KeyUnavailableError(f"Failed to fetch audio key: {exc['error']}")
+            return result.get("key")
+                
         finally:
-             with read_pending:
+             with pending_lock:  # safely decrement counter
                   reading_pending -= 1
+            
 
     class Callback:
 
