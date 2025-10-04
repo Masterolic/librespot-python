@@ -21,7 +21,7 @@ import time
 import typing
 import urllib.parse
 read_lock = RLock()
-read_pending = Lock()
+#read_pending = Lock()
 reading_pending = 0
 if typing.TYPE_CHECKING:
     from librespot.core import Session
@@ -296,31 +296,27 @@ class AudioKeyManager(PacketsReceiver, Closeable):
     def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True, timeout: int = 10) -> bytes:
         global reading_pending         
         try:
-            with pending_lock:  # safely increment counter
-                 reading_pending += 1
-            result = {}
-            exc = {}
-
-            def wrapper():
-                try:
-                    result["key"] = self.get_key(gid, file_id, retry=retry)
-                except Exception as e:
-                   exc["error"] = e
-
-            t = threading.Thread(target=wrapper)
-            t.start()
-            t.join(timeout)
-
-            if t.is_alive():
-               raise KeyUnavailableError(f"⏳ Timeout: get_key took longer than {timeout}s")
-
-            if "error" in exc:
-               raise KeyUnavailableError(f"Failed to fetch audio key: {exc['error']}")
-            return result.get("key")
+            reading_pending += 1
+            with read_lock  # safely increment counter                 
+                 result = {}
+                 exc = {}
+                 def wrapper():
+                     try:
+                         result["key"] = self.get_key(gid, file_id, retry=retry)
+                     except Exception as e:
+                        exc["error"] = e
+                 t = threading.Thread(target=wrapper)
+                 t.start()
+                 t.join(timeout)
+                 if t.is_alive():
+                    raise KeyUnavailableError(f"⏳ Timeout: get_key took longer than {timeout}s")
+                 if "error" in exc:
+                    raise KeyUnavailableError(f"Failed to fetch audio key: {exc['error']}")
+                 return result.get("key")
                 
         finally:
-             with pending_lock:  # safely decrement counter
-                  reading_pending -= 1
+        #     with pending_lock:  # safely decrement counter
+             reading_pending -= 1
             
 
     class Callback:
