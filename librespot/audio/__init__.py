@@ -297,7 +297,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         global reading_pending         
         try:
             reading_pending += 1
-            with read_lock  # safely increment counter                 
+            with read_lock:  # safely increment counter                 
                  result = {}
                  exc = {}
                  def wrapper():
