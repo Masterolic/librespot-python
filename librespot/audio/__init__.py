@@ -380,7 +380,7 @@ class CdnFeedHelper:
         except KeyUnavailableError:
                time.sleep(1)
                start = int(time.time() * 1000) 
-               key = session.audio_key().get_audio_key(track.gid, file.file_id, retry=False timeout=2)
+               key = session.audio_key().get_audio_key(track.gid, file.file_id, retry=False, timeout=2)
                audio_key_time = int(time.time() * 1000) - start
        
         streamer = session.cdn().stream_file(file, key, url, halt_listener)
