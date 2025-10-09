@@ -234,7 +234,7 @@ class AbsChunkedInputStream(io.BytesIO, HaltListener):
 
 
 class AudioKeyManager(PacketsReceiver, Closeable):
-    audio_key_request_timeout = 20
+    audio_key_request_timeout = 2
     logger = logging.getLogger("Librespot:AudioKeyManager")
     __callbacks: typing.Dict[int, Callback] = {}
     __seq_holder = 0
@@ -281,9 +281,9 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         try:
             key = callback.wait_response()
             if key is None:
-               if retry:
-                  time.sleep(1)
-                  return self.get_key(gid, file_id, False)
+           #    if retry:
+          #        time.sleep(1)
+          #        return self.get_key(gid, file_id, False)
                raise KeyUnavailableError(
                 "Failed fetching audio key! gid: {}, fileId: {}".format(
                     util.bytes_to_hex(gid), util.bytes_to_hex(file_id)))
@@ -293,7 +293,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                   self.__callbacks.pop(seq, None)  # Clean up the callback
                             
     
-    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True, timeout: int = 10) -> bytes:
+    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True, timeout: int = 2) -> bytes:
         global reading_pending         
         try:
             reading_pending += 1
@@ -373,10 +373,16 @@ class CdnFeedHelper:
             url = resp_or_url
         else:
             url = CdnFeedHelper.get_url(resp_or_url)
-        start = int(time.time() * 1000)
-        key = session.audio_key().get_audio_key(track.gid, file.file_id)
-        audio_key_time = int(time.time() * 1000) - start
-
+        try:
+            start = int(time.time() * 1000)
+            key = session.audio_key().get_audio_key(track.gid, file.file_id)
+            audio_key_time = int(time.time() * 1000) - start
+        except KeyUnavailableError:
+               time.sleep(1)
+               start = int(time.time() * 1000) 
+               key = session.audio_key().get_audio_key(track.gid, file.file_id, retry=False timeout=2)
+               audio_key_time = int(time.time() * 1000) - start
+       
         streamer = session.cdn().stream_file(file, key, url, halt_listener)
         input_stream = streamer.stream()
         normalization_data = NormalizationData.read(input_stream)
