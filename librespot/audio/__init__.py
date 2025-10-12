@@ -293,7 +293,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                   self.__callbacks.pop(seq, None)  # Clean up the callback
                             
     
-    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True, timeout: int = 2) -> bytes:
+    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True, timeout: int = 1) -> bytes:
         global reading_pending         
         try:
             reading_pending += 1
@@ -377,7 +377,7 @@ class CdnFeedHelper:
             start = int(time.time() * 1000)
             key = session.audio_key().get_audio_key(track.gid, file.file_id)
             audio_key_time = int(time.time() * 1000) - start
-        except KeyUnavailableError:
+        except OSError: #KeyUnavailableError:
                time.sleep(1)
                start = int(time.time() * 1000) 
                key = session.audio_key().get_audio_key(track.gid, file.file_id, retry=False, timeout=2)
