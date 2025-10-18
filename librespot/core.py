@@ -1426,7 +1426,7 @@ class Session(Closeable, MessageListener, SubListener):
         if self.__closed:
             raise RuntimeError("Session is closed!")
         with self.__auth_lock:
-            if self.cipher_pair is None 
+            if self.cipher_pair is None:
                 self.__auth_lock.wait()
             if self.__auth_lock_bool:
                self.__auth_lock.wait()  
