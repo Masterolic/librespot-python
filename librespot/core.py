@@ -1240,8 +1240,8 @@ class Session(Closeable, MessageListener, SubListener):
             return
         for i in range(len(product)):
             self.__user_attributes[product[i].tag] = product[i].text
-        self.logger.debug("Parsed product info: {}".format(
-            self.__user_attributes))
+     #   self.logger.debug("Parsed product info: {}".format(
+    #        self.__user_attributes))
 
     def preferred_locale(self) -> str:
         """ """
@@ -1254,6 +1254,7 @@ class Session(Closeable, MessageListener, SubListener):
             self.__receiver.stop()
         self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
+        
         self.connect()
         self.__authenticate_partial(
             Authentication.LoginCredentials(
@@ -1916,7 +1917,12 @@ class Session(Closeable, MessageListener, SubListener):
             ap_address = address.split(":")[0]
             ap_port = int(address.split(":")[1])
             sock = socket.socket()
-            sock.connect((ap_address, ap_port))
+            for _ in range(3):
+                try:
+                   sock.connect((ap_address, ap_port))
+                   break
+                except Exception as e:
+                    self.__session.logger.warning(e)
             return Session.ConnectionHolder(sock)
 
         def close(self) -> None:
@@ -2072,7 +2078,14 @@ class Session(Closeable, MessageListener, SubListener):
 
                     self.__session.scheduled_reconnect = self.__session.scheduler.enter(
                         2 * 60 + 5, 1, anonymous)
-                    self.__session.send(Packet.Type.pong, packet.payload)
+                    try:
+                        self.__session.send(Packet.Type.pong, packet.payload)
+                    except ConnectionResetError:
+                        if self.__session.scheduled_reconnect is not None:
+                           self.__session.scheduler.cancel(
+                                self.__session.scheduled_reconnect)
+                        self.__session.reconnect()
+                        
                 elif cmd == Packet.Type.pong_ack:
                     continue
                 elif cmd == Packet.Type.country_code:
