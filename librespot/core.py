@@ -65,6 +65,7 @@ from librespot.structure import MessageListener
 from librespot.structure import RequestListener
 from librespot.structure import SubListener
 
+logger = logging.getLogger("Librespot:core")
 
 class ApiClient(Closeable):
     """ """
@@ -1922,7 +1923,7 @@ class Session(Closeable, MessageListener, SubListener):
                    sock.connect((ap_address, ap_port))
                    break
                 except Exception as e:
-                    self.__session.logger.warning(e)
+                    logger.warning(e)
             return Session.ConnectionHolder(sock)
 
         def close(self) -> None:
