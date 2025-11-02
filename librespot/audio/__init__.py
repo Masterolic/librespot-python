@@ -282,7 +282,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         if key is None:
             if retry:
                 return self.get_audio_key(gid, file_id, False)
-            raise RuntimeError(
+            raise KeyUnavailableError(
                 "Failed fetching audio key! gid: {}, fileId: {}".format(
                     util.bytes_to_hex(gid), util.bytes_to_hex(file_id)))
         return key
@@ -795,7 +795,7 @@ class PlayableContentFeeder:
                 track_id_or_track)
             track = self.pick_alternative_if_necessary(original)
             if track is None:
-                raise RuntimeError("Cannot get alternative track")
+                raise ResourceNotAvailableError("Cannot get alternative track")
         else:
             track = track_id_or_track
         file = audio_quality_picker.get_file(track.file)
