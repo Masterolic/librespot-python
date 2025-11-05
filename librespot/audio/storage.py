@@ -17,7 +17,7 @@ if typing.TYPE_CHECKING:
 
 class ChannelManager(Closeable, PacketsReceiver):
     channels: typing.Dict[int, Channel] = {}
-    chunk_size = 128 * 1024
+    chunk_size = 1024 * 1024
     executor_service = concurrent.futures.ThreadPoolExecutor()
     logger = logging.getLogger("Librespot:ChannelManager")
     seq_holder = 0
