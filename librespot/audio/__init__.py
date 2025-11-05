@@ -162,9 +162,9 @@ class AbsChunkedInputStream(io.BytesIO, HaltListener):
                 return b""
             buffer = io.BytesIO()
             total_size = self.size()
-            chunk = int(self.__pos / (128 * 1024))
-            chunk_off = int(self.__pos % (128 * 1024))
-            chunk_total = int(math.ceil(total_size / (128 * 1024)))
+            chunk = int(self.__pos / (ChannelManager.chunk_size))
+            chunk_off = int(self.__pos % (ChannelManager.chunk_size))
+            chunk_total = int(math.ceil(total_size / (ChannelManager.chunk_size)))
             self.check_availability(chunk, True, False)
             buffer.write(self.buffer()[chunk][chunk_off:])
             chunk += 1
@@ -177,13 +177,13 @@ class AbsChunkedInputStream(io.BytesIO, HaltListener):
             self.__pos += buffer.getbuffer().nbytes
             return buffer.read()
         buffer = io.BytesIO()
-        chunk = int(self.__pos / (128 * 1024))
-        chunk_off = int(self.__pos % (128 * 1024))
-        chunk_end = int(__size / (128 * 1024))
-        chunk_end_off = int(__size % (128 * 1024))
+        chunk = int(self.__pos / (ChannelManager.chunk_size))
+        chunk_off = int(self.__pos % (ChannelManager.chunk_size))
+        chunk_end = int(__size / (ChannelManager.chunk_size))
+        chunk_end_off = int(__size % (ChannelManager.chunk_size))
         if chunk_end > self.size():
-            chunk_end = int(self.size() / (128 * 1024))
-            chunk_end_off = int(self.size() % (128 * 1024))
+            chunk_end = int(self.size() / (ChannelManager.chunk_size))
+            chunk_end_off = int(self.size() % (ChannelManager.chunk_size))
         self.check_availability(chunk, True, False)
         if chunk_off + __size > len(self.buffer()[chunk]):
             buffer.write(self.buffer()[chunk][chunk_off:])
