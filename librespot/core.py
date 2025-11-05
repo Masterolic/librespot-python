@@ -2085,6 +2085,7 @@ class Session(Closeable, MessageListener, SubListener):
                         if self.__session.scheduled_reconnect is not None:
                            self.__session.scheduler.cancel(
                                 self.__session.scheduled_reconnect)
+                           self.__session.scheduled_reconnect = None
                         self.__session.reconnect()
                         
                 elif cmd == Packet.Type.pong_ack:
