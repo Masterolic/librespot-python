@@ -65,14 +65,6 @@ from librespot.structure import MessageListener
 from librespot.structure import RequestListener
 from librespot.structure import SubListener
 
-from extended_metadata_pb2 import (
-    BatchedEntityRequest,
-    EntityRequest,
-    ExtensionQuery,
-)
-from extension_kind_pb2 import ExtensionKind
-from extended_metadata_pb2 import BatchedExtensionResponse
-from metadata_pb2 import Track
 
 logger = logging.getLogger("Librespot:core")
 
