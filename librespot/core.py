@@ -58,7 +58,7 @@ from librespot.proto import Keyexchange_pb2 as Keyexchange
 from librespot.proto import Metadata_pb2 as Metadata
 from librespot.proto import Playlist4External_pb2 as Playlist4External
 from librespot.proto.ExplicitContentPubsub_pb2 import UserAttributesUpdate
-from librespot.proto.ExtendedMetadata_pb2 import EntityRequest, BatchedEntityRequest, ExtensionQuery
+from librespot.proto.ExtendedMetadata_pb2 import EntityRequest, BatchedEntityRequest, ExtensionQuery, BatchedExtensionResponse
 from librespot.proto.spotify.login5.v3 import Login5_pb2 as Login5
 from librespot.proto.spotify.login5.v3.credentials import Credentials_pb2 as Login5Credentials
 from librespot.proto.ExtensionKind_pb2 import ExtensionKind
