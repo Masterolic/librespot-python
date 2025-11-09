@@ -208,7 +208,7 @@ class ApiClient(Closeable):
         data = batch.extended_metadata[0].extension_data[0].extension_data.value
         track = Metadata.Track()
         track.ParseFromString(data)
-        return data
+        return track
     
     def get_metadata_4_track(self, track: TrackId) -> Metadata.Track:
         """
