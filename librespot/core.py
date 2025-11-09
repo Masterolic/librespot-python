@@ -58,8 +58,10 @@ from librespot.proto import Keyexchange_pb2 as Keyexchange
 from librespot.proto import Metadata_pb2 as Metadata
 from librespot.proto import Playlist4External_pb2 as Playlist4External
 from librespot.proto.ExplicitContentPubsub_pb2 import UserAttributesUpdate
+from librespot.proto.ExtendedMetadata_pb2 import EntityRequest, BatchedEntityRequest, ExtensionQuery
 from librespot.proto.spotify.login5.v3 import Login5_pb2 as Login5
 from librespot.proto.spotify.login5.v3.credentials import Credentials_pb2 as Login5Credentials
+from librespot.proto.ExtensionKind_pb2 import ExtensionKind
 from librespot.structure import Closeable
 from librespot.structure import MessageListener
 from librespot.structure import RequestListener
@@ -106,20 +108,20 @@ class ApiClient(Closeable):
             self.logger.debug("Updated client token: {}".format(
                 self.__client_token_str))
 
-        request = requests.PreparedRequest()
-        request.method = method
-        request.data = body
-        request.headers = CaseInsensitiveDict()
-        if headers is not None:
-            request.headers = headers
-        request.headers["Authorization"] = "Bearer {}".format(
-            self.__session.tokens().get("playlist-read"))
-        request.headers["client-token"] = self.__client_token_str
         if url is None:
-            request.url = self.__base_url + suffix
+            url = self.__base_url + suffix
         else:
-            request.url = url + suffix
-        return request
+            url = url + suffix
+
+        if headers is None:
+            headers = {}
+        headers["Authorization"] = "Bearer {}".format(
+            self.__session.tokens().get("playlist-read"))
+        headers["client-token"] = self.__client_token_str
+
+        request = requests.Request(method, url, headers=headers, data=body)
+
+        return request.prepare()
 
     def send(
         self,
@@ -191,22 +193,35 @@ class ApiClient(Closeable):
         elif response.status_code != 200:
             self.logger.warning("PUT state returned {}. headers: {}".format(
                 response.status_code, response.headers))
-
+    def get_ext_metadata(self, extension_kind: ExtensionKind, uri: str):
+        query = ExtensionQuery(extension_kind=extension_kind)
+        req = EntityRequest(entity_uri=uri, query=[query,])
+        batch = BatchedEntityRequest(entity_request=[req,])
+        headers = CaseInsensitiveDict({"content-type": "application/x-protobuf"})
+        response = self.send("POST", "/extended-metadata/v0/extended-metadata",
+                             headers, batch.SerializeToString())
+        return response
+    def parse_batched_extension_response(self,body: bytes):
+      # 1️⃣ Parse the top-level wrapper
+        batch = BatchedExtensionResponse()
+        batch.ParseFromString(body)
+        data = batch.extended_metadata[0].extension_data[0].extension_data.value
+        track = Metadata.Track()
+        track.ParseFromString(data)
+        return data
+    
     def get_metadata_4_track(self, track: TrackId) -> Metadata.Track:
         """
 
         :param track: TrackId:
 
         """
-        response = self.sendToUrl("GET", "https://spclient.wg.spotify.com",
-                             "/metadata/4/track/{}".format(track.hex_id()),
-                             None, None)
+        response = self.get_ext_metadata(ExtensionKind.TRACK_V4, track.to_spotify_uri())
         ApiClient.StatusCodeException.check_status(response)
         body = response.content
         if body is None:
             raise RuntimeError()
-        proto = Metadata.Track()
-        proto.ParseFromString(body)
+        proto = self.parse_batched_extension_response(body)
         return proto
 
     def get_metadata_4_episode(self, episode: EpisodeId) -> Metadata.Episode:
