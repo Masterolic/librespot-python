@@ -201,7 +201,7 @@ class EpisodeId(SpotifyId, PlayableId):
         return "hm://metadata/4/episode/{}".format(self.__hex_id)
 
     def to_spotify_uri(self) -> str:
-        return "Spotify:episode:{}".format(
+        return "spotify:episode:{}".format(
             PlayableId.base62.encode(util.hex_to_bytes(self.__hex_id)).decode())
 
     def hex_id(self) -> str:
