@@ -1267,15 +1267,25 @@ class Session(Closeable, MessageListener, SubListener):
         self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
         
-        self.connect()
-        self.__authenticate_partial(
-            Authentication.LoginCredentials(
+        for _ in range(3):
+            try:
+                self.connect()
+                break
+            except Exception as e:
+                self.logger.warning("Librespot re-connect failed to connect due to %s", e)
+        for _ in range(3):
+            try:
+                self.__authenticate_partial(
+                Authentication.LoginCredentials(
                 typ=self.__ap_welcome.reusable_auth_credentials_type,
                 username=self.__ap_welcome.canonical_username,
                 auth_data=self.__ap_welcome.reusable_auth_credentials,
-            ),
-            True,
-        )
+                ),
+                True,
+                )
+                break
+            except Exception as e:
+                self.logger.warning("Librespot re-connect failed to authenticate due to %s", e)
         self.logger.info("Re-authenticated as {}!".format(
             self.__ap_welcome.canonical_username))
 
@@ -1409,7 +1419,10 @@ class Session(Closeable, MessageListener, SubListener):
             raise RuntimeError("Session is closed!")
         with self.__auth_lock:
             if self.cipher_pair is None or self.__auth_lock_bool:
-                self.__auth_lock.wait()
+                result = self.__auth_lock.wait(timeout=10)
+                if not result:
+                   self.__auth_lock_bool = False
+                   self.reconnect()
 
     class AbsBuilder:
         """ """
