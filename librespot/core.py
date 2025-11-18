@@ -74,13 +74,13 @@ class ApiClient(Closeable):
     """ """
     logger = logging.getLogger("Librespot:ApiClient")
     __base_url: str
-    __client_token_str: str = None
+    
     __session: Session
 
     def __init__(self, session: Session):
         self.__session = session
         self.__base_url = "https://{}".format(ApResolver.get_random_spclient())
-
+        self.__client_token_str: str = None
     def build_request(
         self,
         method: str,
@@ -414,7 +414,10 @@ class ApResolver:
         :returns: dealer endpoint url
 
         """
-        return ApResolver.get_random_of("dealer")
+        app_names = ["gae2-dealer.spotify.com:443","guc3-dealer.spotify.com:443","gue1-dealer.spotify.com:443","gew1-dealer.spotify.com:443"]
+        random.sample(app_names, len(app_names))
+        return random.choice(app_names)
+    #    return ApResolver.get_random_of("dealer")
 
     @staticmethod
     def get_random_spclient() -> str:
@@ -424,7 +427,10 @@ class ApResolver:
         :returns: spclient endpoint url
 
         """
-        return ApResolver.get_random_of("spclient")
+        app_names = ["gae2-spclient.spotify.com:443","guc3-spclient.spotify.com:443","gue1-spclient.spotify.com:443","gew4-spclient.spotify.com:443"]
+        random.sample(app_names, len(app_names))
+        return random.choice(app_names)
+    #    return ApResolver.get_random_of("spclient")
 
     @staticmethod
     def get_random_accesspoint() -> str:
@@ -434,7 +440,11 @@ class ApResolver:
         :returns: accesspoint endpoint url
 
         """
-        return ApResolver.get_random_of("accesspoint")
+        app_names = ["ap-gae2.spotify.com:4070","ap-gae2.spotify.com:443","ap-gae2.spotify.com:80","ap-guc3.spotify.com:4070","ap-gew1.spotify.com:443","ap-gew4.spotify.com:80"]
+        random.sample(app_names, len(app_names))
+        return random.choice(app_names)
+   #     return ApResolver.get_random_of("accesspoint")
+
 
 
 class DealerClient(Closeable):
@@ -443,16 +453,17 @@ class DealerClient(Closeable):
     __connection: typing.Union[ConnectionHolder, None]
     __last_scheduled_reconnection: typing.Union[sched.Event, None]
     __message_listeners: typing.Dict[MessageListener, typing.List[str]] = {}
-    __message_listeners_lock = threading.Condition()
+
     __request_listeners: typing.Dict[str, RequestListener] = {}
-    __request_listeners_lock = threading.Condition()
-    __scheduler = sched.scheduler()
+    
     __session: Session
     __worker = concurrent.futures.ThreadPoolExecutor()
 
     def __init__(self, session: Session):
         self.__session = session
-
+        self.__scheduler = sched.scheduler()
+        self.__request_listeners_lock = threading.Condition()
+        self.__message_listeners_lock = threading.Condition()
     def add_message_listener(self, listener: MessageListener,
                              uris: list[str]) -> None:
         """
@@ -629,7 +640,6 @@ class DealerClient(Closeable):
         __dealer_client: DealerClient
         __last_scheduled_ping: sched.Event
         __received_pong = False
-        __scheduler = sched.scheduler()
         __session: Session
         __url: str
         __ws: websocket.WebSocketApp
@@ -639,6 +649,7 @@ class DealerClient(Closeable):
             self.__session = session
             self.__dealer_client = dealer_client
             self.__url = url
+            self.__scheduler = sched.scheduler()
             self.__ws = websocket.WebSocketApp(url)
 
         def close(self):
@@ -1528,7 +1539,8 @@ class Session(Closeable, MessageListener, SubListener):
 
     class Builder(AbsBuilder):
         """ """
-        login_credentials: Authentication.LoginCredentials = None
+        def __init__(self):
+            self.login_credentials: Authentication.LoginCredentials = None
 
         def blob(self, username: str, blob: bytes) -> Session.Builder:
             """
@@ -1780,17 +1792,18 @@ class Session(Closeable, MessageListener, SubListener):
             # proxyPassword: str = None
 
             # Cache
-            cache_enabled: bool = True
-            cache_dir: str = os.path.join(os.getcwd(), "cache")
-            do_cache_clean_up: bool = True
+            def __init__(self):
+                self.cache_enabled: bool = True
+                self.cache_dir: str = os.path.join(os.getcwd(), "cache")
+                self.do_cache_clean_up: bool = True
 
-            # Stored credentials
-            store_credentials: bool = True
-            stored_credentials_file: str = os.path.join(
+                # Stored credentials
+                self.store_credentials: bool = True
+                self.stored_credentials_file: str = os.path.join(
                 os.getcwd(), "credentials.json")
 
             # Fetching
-            retry_on_chunk_error: bool = True
+                self.retry_on_chunk_error: bool = True
 
             # def set_proxy_enabled(
             #         self,
@@ -2053,15 +2066,16 @@ class Session(Closeable, MessageListener, SubListener):
         """ """
         __session: Session
         __thread: threading.Thread
-        __running: bool = True
+        __running: bool
 
         def __init__(self, session):
             self.__session = session
             self.__thread = threading.Thread(target=self.run)
             self.__thread.daemon = True
+            self.__running = True
             self.__thread.name = "session-packet-receiver"
             self.__thread.start()
-
+            
         def stop(self) -> None:
             """ """
             self.__running = False
@@ -2306,10 +2320,11 @@ class TokenProvider:
     logger = logging.getLogger("Librespot:TokenProvider")
     token_expire_threshold = 10
     __session: Session
-    __tokens: typing.List[StoredToken] = []
+    __tokens: typing.List[StoredToken] 
 
     def __init__(self, session: Session):
         self.__session = session
+        self.__tokens = []
 
     def find_token_with_all_scopes(
             self, scopes: typing.List[str]) -> typing.Union[StoredToken, None]:
