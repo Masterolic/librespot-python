@@ -1540,6 +1540,7 @@ class Session(Closeable, MessageListener, SubListener):
     class Builder(AbsBuilder):
         """ """
         def __init__(self):
+            super().__init__()
             self.login_credentials: Authentication.LoginCredentials = None
 
         def blob(self, username: str, blob: bytes) -> Session.Builder:
