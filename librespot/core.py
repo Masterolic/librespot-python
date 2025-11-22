@@ -1303,7 +1303,10 @@ class Session(Closeable, MessageListener, SubListener):
     def reconnecting(self) -> bool:
         """ """
         return not self.__closing and not self.__closed and self.connection is None
-
+    
+    def is_connected(self) -> bool:
+        return self.__receiver._Receiver__running
+        
     def search(self) -> SearchManager:
         """ """
         self.__wait_auth_lock()
