@@ -21,6 +21,9 @@ import time
 import typing
 import urllib.parse
 
+lock = threading.Lock()
+reading_pending = 0
+
 if typing.TYPE_CHECKING:
     from librespot.core import Session
 
@@ -338,12 +341,22 @@ class CdnFeedHelper:
             resp_or_url: typing.Union[StorageResolve.StorageResolveResponse,
                                       str], preload: bool,
             halt_listener: HaltListener) -> PlayableContentFeeder.LoadedStream:
+        global reading_pending
         if type(resp_or_url) is str:
             url = resp_or_url
         else:
             url = CdnFeedHelper.get_url(resp_or_url)
         start = int(time.time() * 1000)
-        key = session.audio_key().get_audio_key(track.gid, file.file_id)
+        reading_pending += 1
+        with lock:
+             try:
+                 key = session.audio_key().get_audio_key(track.gid, file.file_id)
+             except Exception as e:
+                 print(f"key Error {e}")
+                 key = session.audio_key().get_audio_key(track.gid, file.file_id)
+             finally:
+                reading_pending -=1
+            
         audio_key_time = int(time.time() * 1000) - start
 
         streamer = session.cdn().stream_file(file, key, url, halt_listener)
