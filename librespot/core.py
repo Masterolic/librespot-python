@@ -224,6 +224,23 @@ class ApiClient(Closeable):
         proto.ParseFromString(data)
         return proto
 
+    def track_metadata_api(self, track: TrackId) -> Metadata.Track:
+        """
+
+        :param track: TrackId:
+
+        """
+        response = self.sendToUrl("GET", "https://spclient.wg.spotify.com",
+                             "/metadata/4/track/{}".format(track.hex_id()),
+                             None, None)
+        ApiClient.StatusCodeException.check_status(response)
+        body = response.content
+        if body is None:
+            raise RuntimeError()
+        proto = Metadata.Track()
+        proto.ParseFromString(body)
+        return proto
+
     def get_metadata_4_episode(self, episode: EpisodeId) -> Metadata.Episode:
         """
 
@@ -1313,6 +1330,14 @@ class Session(Closeable, MessageListener, SubListener):
         if self.__search is None:
             raise RuntimeError("Session isn't authenticated!")
         return self.__search
+        
+    def get_track_metatadata(self, track: TrackId) -> Metadata.Track:
+        """
+
+        :param track: TrackId:
+
+        """
+        return self.__api.track_metadata_api(track)
 
     def send(self, cmd: bytes, payload: bytes):
         """Send data to socket using send_unchecked
