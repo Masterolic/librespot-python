@@ -1331,7 +1331,7 @@ class Session(Closeable, MessageListener, SubListener):
             raise RuntimeError("Session isn't authenticated!")
         return self.__search
         
-    def get_track_metatadata(self, track: TrackId) -> Metadata.Track:
+    def get_track_metadata(self, track: TrackId) -> Metadata.Track:
         """
 
         :param track: TrackId:
