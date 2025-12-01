@@ -266,7 +266,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
     def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
         reading_pending += 1
         with lock:
-             audio_key(gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
+             self.audio_key(gid, file_id, retry = True)
         reading_pending -= 1
     
     def audio_key(self,
@@ -289,7 +289,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         key = callback.wait_response()
         if key is None:
             if retry:
-                return self.get_audio_key(gid, file_id, False)
+                return self.audio_key(gid, file_id, False)
             raise KeyUnavailableError(
                 "Failed fetching audio key! gid: {}, fileId: {}".format(
                     util.bytes_to_hex(gid), util.bytes_to_hex(file_id)))
