@@ -263,8 +263,13 @@ class AudioKeyManager(PacketsReceiver, Closeable):
             self.logger.warning(
                 "Couldn't handle packet, cmd: {}, length: {}".format(
                     packet.cmd, len(packet.payload)))
-
-    def get_audio_key(self,
+    def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
+        reading_pending += 1
+        with lock:
+             audio_key(gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
+        reading_pending -= 1
+    
+    def audio_key(self,
                       gid: bytes,
                       file_id: bytes,
                       retry: bool = True) -> bytes:
@@ -347,16 +352,7 @@ class CdnFeedHelper:
         else:
             url = CdnFeedHelper.get_url(resp_or_url)
         start = int(time.time() * 1000)
-        reading_pending += 1
-        with lock:
-             try:
-                 key = session.audio_key().get_audio_key(track.gid, file.file_id)
-             except Exception as e:
-                 print(f"key Error {e}")
-                 key = session.audio_key().get_audio_key(track.gid, file.file_id)
-             finally:
-                reading_pending -=1
-            
+        key = session.audio_key().get_audio_key(track.gid, file.file_id)                       
         audio_key_time = int(time.time() * 1000) - start
 
         streamer = session.cdn().stream_file(file, key, url, halt_listener)
