@@ -267,8 +267,9 @@ class AudioKeyManager(PacketsReceiver, Closeable):
         global reading_pending 
         reading_pending += 1
         with lock:
-             self.audio_key(gid, file_id, retry = True)
-        reading_pending -= 1
+             key = self.audio_key(gid, file_id, retry = True)
+             reading_pending -= 1
+             return key
     
     def audio_key(self,
                       gid: bytes,
