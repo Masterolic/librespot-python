@@ -264,6 +264,7 @@ class AudioKeyManager(PacketsReceiver, Closeable):
                 "Couldn't handle packet, cmd: {}, length: {}".format(
                     packet.cmd, len(packet.payload)))
     def get_audio_key(self, gid: bytes, file_id: bytes, retry: bool = True) -> bytes:
+        global reading_pending 
         reading_pending += 1
         with lock:
              self.audio_key(gid, file_id, retry = True)
