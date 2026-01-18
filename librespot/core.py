@@ -1322,6 +1322,8 @@ class Session(Closeable, MessageListener, SubListener):
         return not self.__closing and not self.__closed and self.connection is None
     
     def is_connected(self) -> bool:
+        if not self.__receiver:
+           return False 
         return self.__receiver._Receiver__running
         
     def search(self) -> SearchManager:
