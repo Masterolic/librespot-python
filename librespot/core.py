@@ -1291,6 +1291,7 @@ class Session(Closeable, MessageListener, SubListener):
         """Reconnect to the Spotify Server"""
         if self.connection is not None:
             self.connection.close()
+        if self.__receiver is not None:  
             self.__receiver.stop()
         self.connection = Session.ConnectionHolder.create(
             ApResolver.get_random_accesspoint(), self.__inner.conf)
