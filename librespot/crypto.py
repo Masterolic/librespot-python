@@ -55,16 +55,19 @@ class CipherPair:
         try:
             self.__receive_cipher.nonce(self.__receive_nonce)
             self.__receive_nonce += 1
-            header_bytes = self.__receive_cipher.decrypt(connection.read(3))
+            header_bytes = self.__receive_cipher.decrypt(
+                connection.read_exact(3))
             cmd = struct.pack(">s", bytes([header_bytes[0]]))
             payload_length = (header_bytes[1] << 8) | (header_bytes[2] & 0xff)
             payload_bytes = self.__receive_cipher.decrypt(
-                connection.read(payload_length))
-            mac = connection.read(4)
+                connection.read_exact(payload_length))
+            mac = connection.read_exact(4)
             expected_mac = self.__receive_cipher.finish(4)
             if mac != expected_mac:
-                raise RuntimeError()
+                raise RuntimeError("Bad MAC")
             return Packet(cmd, payload_bytes)
+        except ConnectionError:
+            raise
         except (IndexError, OSError):
             raise RuntimeError("Failed to receive packet")
 
