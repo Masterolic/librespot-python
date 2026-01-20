@@ -2,27 +2,35 @@ import base64
 import logging
 import random
 import urllib
+import json
 from hashlib import sha256
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 from librespot.proto import Authentication_pb2 as Authentication
+from requests.structures import CaseInsensitiveDict
+from datetime import datetime, timedelta
 import requests
 
 
 class OAuth:
     logger = logging.getLogger("Librespot:OAuth")
+    OAUTH_PKCE_TOKEN = "OAUTH_PKCE_TOKEN"
     __spotify_auth = "https://accounts.spotify.com/authorize?response_type=code&client_id=%s&redirect_uri=%s&code_challenge=%s&code_challenge_method=S256&scope=%s"
     __scopes = ["app-remote-control", "playlist-modify", "playlist-modify-private", "playlist-modify-public", "playlist-read", "playlist-read-collaborative", "playlist-read-private", "streaming", "ugc-image-upload", "user-follow-modify", "user-follow-read", "user-library-modify", "user-library-read", "user-modify", "user-modify-playback-state", "user-modify-private", "user-personalized", "user-read-birthdate", "user-read-currently-playing", "user-read-email", "user-read-play-history", "user-read-playback-position", "user-read-playback-state", "user-read-private", "user-read-recently-played", "user-top-read"]
     __spotify_token = "https://accounts.spotify.com/api/token"
-    __spotify_token_data = {"grant_type": "authorization_code", "client_id": "", "redirect_uri": "", "code": "", "code_verifier": ""}
+    __spotify_token_data = CaseInsensitiveDict({"grant_type": "",
+                                                "client_id": ""})
     __client_id = ""
     __redirect_url = ""
     __code_verifier = ""
     __code = ""
     __token = ""
+    __token_expires_at = datetime.now()
+    __refresh_token = ""
     __server = None
     __oauth_url_callback = None
     __success_page_content = None
+    __listen_all_interfaces = False
 
     def __init__(self, client_id, redirect_url, oauth_url_callback):
         self.__client_id = client_id
@@ -53,26 +61,83 @@ class OAuth:
 
     def set_code(self, code):
         self.__code = code
+        return self
 
     def set_scopes(self, scopes):
         self.__scopes = scopes
         return self
 
+    def set_listen_all(self, listen_all: bool):
+        self.__listen_all_interfaces = listen_all
+        return self
+
+    def ingest_token_response(self, result):
+        self.__token = result["access_token"]
+        self.__refresh_token = result["refresh_token"]
+        if "expires_in" in result:
+            self.__token_expires_at = datetime.now() + timedelta(seconds=result["expires_in"])
+        elif "expires_at" in result:
+            self.__token_expires_at = datetime.fromtimestamp(result["expires_at"])
+        return self
+
     def request_token(self):
         if not self.__code:
             raise RuntimeError("You need to provide a code before!")
+
         request_data = self.__spotify_token_data
+        request_data["grant_type"] = "authorization_code"
         request_data["client_id"] = self.__client_id
         request_data["redirect_uri"] = self.__redirect_url
         request_data["code"] = self.__code
         request_data["code_verifier"] = self.__code_verifier
-        request = requests.post(
+
+        response = requests.post(
             self.__spotify_token,
+            headers=CaseInsensitiveDict({"Content-Type": "application/x-www-form-urlencoded"}),
             data=request_data,
         )
-        if request.status_code != 200:
-            raise RuntimeError("Received status code %d: %s" % (request.status_code, request.reason))
-        self.__token = request.json()["access_token"]
+        if response.status_code != 200:
+            raise RuntimeError("Received status code %d: %s" % (response.status_code, response.reason))
+        return self.ingest_token_response(response.json())
+
+    def refresh_token(self):
+        if not self.__refresh_token:
+            raise RuntimeError("You need to receive a token before!")
+
+        if self.__token_expires_at > datetime.now():
+            return self
+
+        request_data = self.__spotify_token_data
+        request_data["grant_type"] = "refresh_token"
+        request_data["client_id"] = self.__client_id
+        request_data["refresh_token"] = self.__refresh_token
+
+        response = requests.post(
+            self.__spotify_token,
+            headers=CaseInsensitiveDict({"Content-Type": "application/x-www-form-urlencoded"}),
+            data=request_data,
+        )
+        if response.status_code != 200:
+            raise RuntimeError("Received status code %d: %s" % (response.status_code, response.reason))
+        return self.ingest_token_response(response.json())
+
+    def token(self):
+        if not self.__token:
+            raise RuntimeError("You need to request a token bore!")
+
+        self.refresh_token()
+
+        return self.__token
+
+    def save_creds(self, cred_path: str):
+        with open(cred_path, 'w',) as f:
+            json.dump({
+                "client_id": self.__client_id,
+                "access_token": self.__token,
+                "expires_at": self.__token_expires_at.timestamp(),
+                "refresh_token": self.__refresh_token,
+                "type": self.OAUTH_PKCE_TOKEN
+            }, f)
 
     def get_credentials(self):
         if not self.__token:
@@ -123,8 +188,9 @@ class OAuth:
 
     def run_callback_server(self):
         url = urlparse(self.__redirect_url)
+        address = "" if self.__listen_all_interfaces else url.hostname
         self.__server = self.CallbackServer(
-            (url.hostname, url.port),
+            (address, url.port),
             self.CallbackRequestHandler,
             url.path,
             self.set_code,
