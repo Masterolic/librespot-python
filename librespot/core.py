@@ -1752,7 +1752,7 @@ class Session(Closeable, MessageListener, SubListener):
                     self.conf,
                     self.device_id,
                 ),
-                ApResolver.get_random_accesspoint(),
+                ApResolver,
             )
             session.connect()
             session.authenticate(self.login_credentials)
@@ -1974,7 +1974,7 @@ class Session(Closeable, MessageListener, SubListener):
             self.__socket = sock
 
         @staticmethod
-        def create(address: str, conf) -> Session.ConnectionHolder:
+        def create(apresolver: ApResolver, conf) -> Session.ConnectionHolder:
             """Create the ConnectionHolder instance
 
             :param address: Address to connect
@@ -1983,11 +1983,12 @@ class Session(Closeable, MessageListener, SubListener):
             :returns: ConnectionHolder instance
 
             """
-            ap_address = address.split(":")[0]
-            ap_port = int(address.split(":")[1])
             sock = socket.socket()
             for _ in range(3):
                 try:
+                   address = apresolver.get_random_accesspoint()
+                   ap_address = address.split(":")[0]
+                   ap_port = int(address.split(":")[1])
                    sock.connect((ap_address, ap_port))
                    break
                 except Exception as e:
