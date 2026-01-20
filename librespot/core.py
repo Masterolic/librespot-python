@@ -2016,6 +2016,20 @@ class Session(Closeable, MessageListener, SubListener):
             """
             return self.__socket.recv(length)
 
+        def read_exact(self, length: int) -> bytes:
+            """Read exactly length bytes from socket or raise on EOF."""
+            if length == 0:
+                return b""
+            buffer = bytearray()
+            remaining = length
+            while remaining > 0:
+                chunk = self.__socket.recv(remaining)
+                if chunk == b"":
+                    raise ConnectionError("EOF")
+                buffer.extend(chunk)
+                remaining -= len(chunk)
+            return bytes(buffer)
+
         def read_int(self) -> int:
             """Read integer from socket
 
@@ -2127,7 +2141,8 @@ class Session(Closeable, MessageListener, SubListener):
                             format(util.bytes_to_hex(packet.cmd),
                                    packet.payload))
                         continue
-                except (RuntimeError, ConnectionResetError) as ex:
+                except (RuntimeError, ConnectionResetError,
+                        ConnectionError) as ex:
                     if self.__running:
                         self.__session.logger.fatal(
                             "Failed reading packet! {}".format(ex))
