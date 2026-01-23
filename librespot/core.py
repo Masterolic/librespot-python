@@ -1294,7 +1294,7 @@ class Session(Closeable, MessageListener, SubListener):
         if self.__receiver is not None:  
             self.__receiver.stop()
         self.connection = Session.ConnectionHolder.create(
-            ApResolver.get_random_accesspoint(), self.__inner.conf)
+            ApResolver, self.__inner.conf)
         
         for _ in range(3):
             try:
