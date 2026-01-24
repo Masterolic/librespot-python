@@ -31,11 +31,11 @@ class ZeroconfServer(Closeable):
         "status": 101,
         "statusString": "OK",
         "spotifyError": 0,
-        "version": "9.1.14.864",
+        "version": "2.7.1",
         "libraryVersion": Version.version_name,
         "accountReq": "PREMIUM",
-        "brandDisplayName": "Vivo X300 Pro",
-        "modelDisplayName": "Vivo X300 Pro",
+        "brandDisplayName": "kokarare1212",
+        "modelDisplayName": "librespot-python",
         "voiceSupport": "NO",
         "availability": "",
         "productID": 0,
@@ -103,7 +103,10 @@ class ZeroconfServer(Closeable):
 
     def get_useful_hostname(self) -> str:
         host = socket.gethostname()
-        return host
+        if host == "localhost":
+            pass
+        else:
+            return host
 
     def handle_add_user(self, __socket: socket.socket, params: dict[str, str],
                         http_version: str) -> None:
