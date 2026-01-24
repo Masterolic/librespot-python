@@ -103,10 +103,7 @@ class ZeroconfServer(Closeable):
 
     def get_useful_hostname(self) -> str:
         host = socket.gethostname()
-        if host == "localhost":
-            pass
-        else:
-            return host
+        return host
 
     def handle_add_user(self, __socket: socket.socket, params: dict[str, str],
                         http_version: str) -> None:
