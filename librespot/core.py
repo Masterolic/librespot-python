@@ -1762,6 +1762,17 @@ class Session(Closeable, MessageListener, SubListener):
                 except struct.error as e:
                     time.sleep(1)
                     print(e)
+                    session.close()
+                    session = Session(
+                Session.Inner(
+                    self.device_type,
+                    self.device_name,
+                    self.preferred_locale,
+                    self.conf,
+                    self.device_id,
+                ),
+                ApResolver,
+                    )
             session.authenticate(self.login_credentials)
             return session
 
