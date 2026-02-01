@@ -1755,7 +1755,13 @@ class Session(Closeable, MessageListener, SubListener):
                 ),
                 ApResolver,
             )
-            session.connect()
+            for _ in range(4):
+                try:
+                    session.connect()
+                    break
+                except struct.error as e:
+                    time.sleep(1)
+                    print(e)
             session.authenticate(self.login_credentials)
             return session
 
