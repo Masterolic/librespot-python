@@ -193,6 +193,7 @@ class ApiClient(Closeable):
         elif response.status_code != 200:
             self.logger.warning("PUT state returned {}. headers: {}".format(
                 response.status_code, response.headers))
+            
     def get_ext_metadata(self, extension_kind: ExtensionKind, uri: str):
         query = ExtensionQuery(extension_kind=extension_kind)
         req = EntityRequest(entity_uri=uri, query=[query,])
@@ -201,12 +202,16 @@ class ApiClient(Closeable):
         response = self.send("POST", "/extended-metadata/v0/extended-metadata",
                              headers, batch.SerializeToString())
         return response
+        
     def parse_batched_extension_response(self,body: bytes):
       # 1️⃣ Parse the top-level wrapper
         batch = BatchedExtensionResponse()
         batch.ParseFromString(body)
-        data = batch.extended_metadata[0].extension_data[0].extension_data.value
-        return data
+        entityextd = proto.extended_metadata.pop().extension_data.pop()
+        if entityextd.header.status_code != 200:
+            raise ConnectionError("Extended Metadata request for {} failed: Status code {}".format(uri, entityextd.header.status_code))
+        mdb: bytes = entityextd.extension_data.value
+        return mdb
     
     def get_metadata_4_track(self, track: TrackId) -> Metadata.Track:
         """
