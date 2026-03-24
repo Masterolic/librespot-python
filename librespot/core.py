@@ -205,8 +205,8 @@ class ApiClient(Closeable):
         
     def parse_batched_extension_response(self,body: bytes):
       # 1️⃣ Parse the top-level wrapper
-        batch = BatchedExtensionResponse()
-        batch.ParseFromString(body)
+        proto = BatchedExtensionResponse()
+        proto.ParseFromString(body)
         entityextd = proto.extended_metadata.pop().extension_data.pop()
         if entityextd.header.status_code != 200:
             raise ConnectionError("Extended Metadata request for {} failed: Status code {}".format(uri, entityextd.header.status_code))
